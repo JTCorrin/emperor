@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import LoadMoreButton from '$lib/components/media/LoadMoreButton.svelte';
@@ -14,6 +14,16 @@
 	const list = new PaginatedListController<Album>({
 		getBaseUrl: () => connection.baseUrl,
 		fetchPage: (client, query) => client.getAlbums(query)
+	});
+
+	let regroupNotice = $state<string | null>(null);
+
+	onMount(() => {
+		const notice = sessionStorage.getItem('emperor:album-regroup-notice');
+		if (notice) {
+			sessionStorage.removeItem('emperor:album-regroup-notice');
+			regroupNotice = notice;
+		}
 	});
 
 	onDestroy(() => list.dispose());
@@ -40,6 +50,10 @@
 			Artists
 		</a>
 	</div>
+
+	{#if regroupNotice}
+		<p class="text-text-muted text-base" role="status">{regroupNotice}</p>
+	{/if}
 
 	{#if connection.status !== 'connected'}
 		<div class="border-border bg-surface-raised rounded-card border p-6">

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	albumMetadataFormSchema,
+	albumMetadataPatchSchema,
+	albumPatchResponseSchema,
 	albumPageSchema,
 	albumSchema,
 	artistPageSchema,
@@ -10,6 +13,8 @@ import {
 	pingResponseSchema,
 	playlistSchema,
 	searchResponseSchema,
+	trackMetadataFormSchema,
+	trackMetadataPatchSchema,
 	trackPageSchema,
 	trackSchema
 } from '$lib/api/schemas';
@@ -85,5 +90,43 @@ describe('API schemas', () => {
 			baseUrl: 'http://192.168.5.111:8080'
 		});
 		expect(connectFormSchema.safeParse({ baseUrl: 'not-a-url' }).success).toBe(false);
+	});
+
+	it('accepts partial track and album metadata patches including null clears', () => {
+		expect(trackMetadataPatchSchema.parse({ title: 'Fixed', genre: null })).toEqual({
+			title: 'Fixed',
+			genre: null
+		});
+		expect(trackMetadataPatchSchema.parse({ track_number: 0, disc_number: null })).toEqual({
+			track_number: 0,
+			disc_number: null
+		});
+		expect(albumMetadataPatchSchema.parse({ name: 'New', release_date: null })).toEqual({
+			name: 'New',
+			release_date: null
+		});
+		expect(albumPatchResponseSchema.parse({ updated_track_count: 4 })).toEqual({
+			updated_track_count: 4
+		});
+		expect(trackMetadataPatchSchema.safeParse({ release_date: '13-2024' }).success).toBe(false);
+		expect(
+			trackMetadataFormSchema.safeParse({
+				title: 't',
+				artist: 'a',
+				album: 'b',
+				release_date: 'bad',
+				genre: '',
+				track_number: '',
+				disc_number: ''
+			}).success
+		).toBe(false);
+		expect(
+			albumMetadataFormSchema.safeParse({
+				name: '',
+				artist: 'a',
+				release_date: '',
+				genre: ''
+			}).success
+		).toBe(false);
 	});
 });

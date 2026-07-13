@@ -4,6 +4,7 @@
 	import LoadMoreButton from '$lib/components/media/LoadMoreButton.svelte';
 	import TrackRow from '$lib/components/media/TrackRow.svelte';
 	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
+	import TrackMetadataDialog from '$lib/features/metadata/TrackMetadataDialog.svelte';
 	import { PaginatedListController } from '$lib/features/browse/paginatedList.svelte';
 	import { getConnection, getFavourites, getPlayer } from '$lib/state/context';
 	import type { Track } from '$lib/api';
@@ -11,6 +12,8 @@
 	const connection = getConnection();
 	const player = getPlayer();
 	const favourites = getFavourites();
+
+	let editingTrack = $state.raw<Track | null>(null);
 
 	const list = new PaginatedListController<Track>({
 		getBaseUrl: () => connection.baseUrl,
@@ -26,6 +29,17 @@
 			void list.load();
 		});
 	});
+
+	function onTrackSaved(updated: Track) {
+		editingTrack = null;
+		list.items = list.items.map((item) => (item.id === updated.id ? updated : item));
+		const queueIndex = player.queue.findIndex((item) => item.id === updated.id);
+		if (queueIndex >= 0) {
+			const nextQueue = [...player.queue];
+			nextQueue[queueIndex] = updated;
+			player.queue = nextQueue;
+		}
+	}
 </script>
 
 <section class="flex flex-1 flex-col gap-6 pb-4">
@@ -69,11 +83,17 @@
 						title={track.title}
 						subtitle={`${track.artist} · ${track.album}`}
 						trackNumber={track.track_number}
+						status={track.overridden_fields.length
+							? `Overridden: ${track.overridden_fields.join(', ')}`
+							: ''}
 						favourite={connection.hasUserDb === true ? favourites.isFavourite(track.id) : null}
 						favouritePending={favourites.isPending(track.id)}
 						onFavouriteClick={connection.hasUserDb === true
 							? () => favourites.toggle(track)
 							: undefined}
+						onEditClick={() => {
+							editingTrack = track;
+						}}
 						onclick={() => player.playTracks(list.items, index)}
 					/>
 				</li>
@@ -86,3 +106,11 @@
 		/>
 	{/if}
 </section>
+
+<TrackMetadataDialog
+	track={editingTrack}
+	onsaved={onTrackSaved}
+	onclose={() => {
+		editingTrack = null;
+	}}
+/>

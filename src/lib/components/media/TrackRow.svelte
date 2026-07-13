@@ -6,6 +6,8 @@
 		favourite?: boolean | null;
 		favouritePending?: boolean;
 		onFavouriteClick?: () => void;
+		status?: string;
+		onEditClick?: () => void;
 		onclick?: () => void;
 	}
 
@@ -16,6 +18,8 @@
 		favourite = null,
 		favouritePending = false,
 		onFavouriteClick,
+		status = '',
+		onEditClick,
 		onclick
 	}: Props = $props();
 </script>
@@ -38,8 +42,24 @@
 			{#if subtitle}
 				<span class="text-text-muted block truncate text-base">{subtitle}</span>
 			{/if}
+			{#if status}
+				<span class="text-text-muted mt-1 block truncate text-sm">{status}</span>
+			{/if}
 		</span>
 	</button>
+	{#if onEditClick}
+		<button
+			type="button"
+			class="border-border bg-surface-muted hover:border-accent min-h-touch min-w-touch shrink-0 rounded-card border text-sm font-semibold"
+			aria-label={`Edit ${title}`}
+			onclick={(event) => {
+				event.stopPropagation();
+				onEditClick();
+			}}
+		>
+			Edit
+		</button>
+	{/if}
 	{#if favourite != null && onFavouriteClick}
 		<button
 			type="button"

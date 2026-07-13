@@ -17,6 +17,17 @@ describe('TrackRow', () => {
 		await page.getByRole('button', { name: /Add Song Title to favourites/ }).click();
 		expect(onFavouriteClick).toHaveBeenCalled();
 	});
+
+	it('activates the edit handler', async () => {
+		const onEditClick = vi.fn();
+		render(TrackRow, {
+			title: 'Song Title',
+			onEditClick
+		});
+
+		await page.getByRole('button', { name: 'Edit Song Title' }).click();
+		expect(onEditClick).toHaveBeenCalled();
+	});
 });
 
 describe('MediaGrid', () => {

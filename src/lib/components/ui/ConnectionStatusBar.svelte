@@ -25,7 +25,8 @@
 	const detail = $derived.by(() => {
 		if (connection.status === 'connected' && connection.libraryStatus) {
 			const status = connection.libraryStatus;
-			return `${connection.baseUrl} · ${status.track_count} tracks`;
+			const scanning = status.scanning ? ' · Scanning…' : '';
+			return `${connection.baseUrl} · ${status.track_count} tracks${scanning}`;
 		}
 		if (connection.error) {
 			return connection.error.message;

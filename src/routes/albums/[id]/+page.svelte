@@ -12,6 +12,8 @@
 		type Album,
 		type Track
 	} from '$lib/api';
+	import AlbumMetadataDialog from '$lib/features/metadata/AlbumMetadataDialog.svelte';
+	import TrackMetadataDialog from '$lib/features/metadata/TrackMetadataDialog.svelte';
 	import { PaginatedListController } from '$lib/features/browse/paginatedList.svelte';
 	import { getConnection, getPlayer } from '$lib/state/context';
 
@@ -25,6 +27,9 @@
 	let albumError = $state<string | null>(null);
 	let albumAbort: AbortController | null = null;
 	let albumToken = 0;
+	let editingTrack = $state.raw<Track | null>(null);
+	let editingAlbum = $state.raw<Album | null>(null);
+	let regroupNotice = $state<string | null>(null);
 
 	const tracks = new PaginatedListController<Track>({
 		getBaseUrl: () => connection.baseUrl,
@@ -71,6 +76,22 @@
 		}
 	}
 
+	function overrideStatus(track: Track): string {
+		if (!track.overridden_fields.length) return '';
+		return `Overridden: ${track.overridden_fields.join(', ')}`;
+	}
+
+	function onTrackSaved(updated: Track) {
+		editingTrack = null;
+		tracks.items = tracks.items.map((item) => (item.id === updated.id ? updated : item));
+		const queueIndex = player.queue.findIndex((item) => item.id === updated.id);
+		if (queueIndex >= 0) {
+			const nextQueue = [...player.queue];
+			nextQueue[queueIndex] = updated;
+			player.queue = nextQueue;
+		}
+	}
+
 	$effect(() => {
 		const connected = connection.status === 'connected' && connection.baseUrl !== null;
 		const id = albumId;
@@ -89,6 +110,10 @@
 	>
 		Back to albums
 	</a>
+
+	{#if regroupNotice}
+		<p class="text-text-muted text-base" role="status">{regroupNotice}</p>
+	{/if}
 
 	{#if connection.status !== 'connected'}
 		<div class="border-border bg-surface-raised rounded-card border p-6">
@@ -132,15 +157,26 @@
 					{album.track_count} tracks{#if album.release_date}
 						· {album.release_date}{/if}
 				</p>
-				{#if tracks.status === 'ready' && tracks.items.length > 0}
+				<div class="flex flex-wrap gap-3">
+					{#if tracks.status === 'ready' && tracks.items.length > 0}
+						<button
+							type="button"
+							class="bg-accent text-text hover:bg-accent-strong min-h-touch w-fit rounded-card px-5 text-base font-semibold"
+							onclick={() => player.playTracks(tracks.items, 0)}
+						>
+							Play album
+						</button>
+					{/if}
 					<button
 						type="button"
-						class="bg-accent text-text hover:bg-accent-strong min-h-touch w-fit rounded-card px-5 text-base font-semibold"
-						onclick={() => player.playTracks(tracks.items, 0)}
+						class="border-border bg-surface-muted hover:border-accent min-h-touch rounded-card border px-5 text-base font-semibold"
+						onclick={() => {
+							editingAlbum = album;
+						}}
 					>
-						Play album
+						Edit album
 					</button>
-				{/if}
+				</div>
 			</div>
 		</div>
 
@@ -167,6 +203,10 @@
 							title={track.title}
 							subtitle={track.artist}
 							trackNumber={track.track_number}
+							status={overrideStatus(track)}
+							onEditClick={() => {
+								editingTrack = track;
+							}}
 							onclick={() => player.playTracks(tracks.items, index)}
 						/>
 					</li>
@@ -180,3 +220,27 @@
 		{/if}
 	{/if}
 </section>
+
+<TrackMetadataDialog
+	track={editingTrack}
+	onsaved={onTrackSaved}
+	onclose={() => {
+		editingTrack = null;
+	}}
+/>
+
+<AlbumMetadataDialog
+	album={editingAlbum}
+	onsaved={(next) => {
+		editingAlbum = null;
+		album = next;
+		void tracks.load();
+	}}
+	onclose={() => {
+		editingAlbum = null;
+	}}
+	onregrouped={(message) => {
+		editingAlbum = null;
+		regroupNotice = message;
+	}}
+/>

@@ -8,6 +8,7 @@ import {
 import {
 	albumPageSchema,
 	albumSchema,
+	albumPatchResponseSchema,
 	artistPageSchema,
 	artistSchema,
 	errorBodySchema,
@@ -18,8 +19,11 @@ import {
 	playlistSchema,
 	searchResponseSchema,
 	trackPageSchema,
+	trackSchema,
 	type Album,
+	type AlbumMetadataPatch,
 	type AlbumPage,
+	type AlbumPatchResponse,
 	type Artist,
 	type ArtistPage,
 	type HistoryPage,
@@ -28,6 +32,8 @@ import {
 	type Playlist,
 	type PlaylistPage,
 	type SearchResponse,
+	type Track,
+	type TrackMetadataPatch,
 	type TrackPage
 } from './schemas';
 import { apiUrl, normalizeBaseUrl } from './url';
@@ -49,16 +55,29 @@ export type SearchQuery = PaginationQuery & {
 	q: string;
 };
 
+export type LibraryScanOptions = {
+	force?: boolean;
+	signal?: AbortSignal;
+};
+
 export type MediaServerClient = {
 	baseUrl: string;
 	ping: (signal?: AbortSignal) => Promise<PingResponse>;
 	getLibraryStatus: (signal?: AbortSignal) => Promise<LibraryStatus>;
+	startLibraryScan: (options?: LibraryScanOptions) => Promise<void>;
 	getTracks: (query?: PaginationQuery) => Promise<TrackPage>;
+	getTrack: (id: number, signal?: AbortSignal) => Promise<Track>;
+	updateTrack: (id: number, patch: TrackMetadataPatch, signal?: AbortSignal) => Promise<Track>;
 	getArtists: (query?: PaginationQuery) => Promise<ArtistPage>;
 	getArtist: (id: number, signal?: AbortSignal) => Promise<Artist>;
 	getArtistAlbums: (id: number, query?: PaginationQuery) => Promise<AlbumPage>;
 	getAlbums: (query?: PaginationQuery) => Promise<AlbumPage>;
 	getAlbum: (id: number, signal?: AbortSignal) => Promise<Album>;
+	updateAlbum: (
+		id: number,
+		patch: AlbumMetadataPatch,
+		signal?: AbortSignal
+	) => Promise<AlbumPatchResponse>;
 	getAlbumTracks: (id: number, query?: PaginationQuery) => Promise<TrackPage>;
 	search: (query: SearchQuery) => Promise<SearchResponse>;
 	getDiscoverRandom: (query?: PaginationQuery) => Promise<TrackPage>;
@@ -208,7 +227,26 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 			requestJson('/api/library/status', libraryStatusSchema, {
 				signal
 			}) as Promise<LibraryStatus>,
+		startLibraryScan: async (options = {}) => {
+			await requestJson(
+				withQuery('/api/library/scan', {
+					force: options.force ? 1 : undefined
+				}),
+				null,
+				{
+					...jsonMutation('POST'),
+					signal: options.signal
+				}
+			);
+		},
 		getTracks: (query = {}) => getTrackPage('/api/tracks', query),
+		getTrack: (id, signal) =>
+			requestJson(`/api/tracks/${id}`, trackSchema, { signal }) as Promise<Track>,
+		updateTrack: (id, patch, signal) =>
+			requestJson(`/api/tracks/${id}`, trackSchema, {
+				...jsonMutation('PATCH', patch),
+				signal
+			}) as Promise<Track>,
 		getArtists: (query = {}) => getArtistPage('/api/artists', query),
 		getArtist: (id, signal) =>
 			requestJson(`/api/artists/${id}`, artistSchema, { signal }) as Promise<Artist>,
@@ -216,6 +254,11 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 		getAlbums: (query = {}) => getAlbumPage('/api/albums', query),
 		getAlbum: (id, signal) =>
 			requestJson(`/api/albums/${id}`, albumSchema, { signal }) as Promise<Album>,
+		updateAlbum: (id, patch, signal) =>
+			requestJson(`/api/albums/${id}`, albumPatchResponseSchema, {
+				...jsonMutation('PATCH', patch),
+				signal
+			}) as Promise<AlbumPatchResponse>,
 		getAlbumTracks: (id, query = {}) => getTrackPage(`/api/albums/${id}/tracks`, query),
 		search: (query) =>
 			requestJson(

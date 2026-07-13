@@ -19,4 +19,15 @@ describe('ConnectionStatusBar', () => {
 		await expect.element(page.getByRole('button', { name: 'Recheck' })).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Disconnect' })).toBeVisible();
 	});
+
+	it('appends a scanning hint while a library scan is running', async () => {
+		const connection = new ConnectionController({ storage: null });
+		connection.baseUrl = 'http://192.168.5.111:8080';
+		connection.status = 'connected';
+		connection.libraryStatus = libraryStatusFixture({ track_count: 12, scanning: true });
+
+		render(ConnectionStatusBar, { connection });
+
+		await expect.element(page.getByText(/Scanning…/)).toBeVisible();
+	});
 });

@@ -117,6 +117,67 @@ export const searchResponseSchema = z.object({
 	albums: albumPageSchema
 });
 
+export const releaseDateSchema = z
+	.string()
+	.regex(/^\d{4}(-\d{2}(-\d{2})?)?$/, 'Use YYYY, YYYY-MM, or YYYY-MM-DD');
+
+export const trackMetadataPatchSchema = z
+	.object({
+		title: z.string().trim().min(1).nullable().optional(),
+		artist: z.string().trim().min(1).nullable().optional(),
+		album: z.string().trim().min(1).nullable().optional(),
+		release_date: releaseDateSchema.nullable().optional(),
+		genre: z.string().trim().min(1).nullable().optional(),
+		track_number: z.number().int().nonnegative().nullable().optional(),
+		disc_number: z.number().int().nonnegative().nullable().optional()
+	})
+	.strict();
+
+export const albumMetadataPatchSchema = z
+	.object({
+		name: z.string().trim().min(1).nullable().optional(),
+		artist: z.string().trim().min(1).nullable().optional(),
+		release_date: releaseDateSchema.nullable().optional(),
+		genre: z.string().trim().min(1).nullable().optional()
+	})
+	.strict();
+
+export const albumPatchResponseSchema = z.object({
+	updated_track_count: z.number().int().nonnegative()
+});
+
+/** Form-facing track edit values (strings for inputs). */
+export const trackMetadataFormSchema = z.object({
+	title: z.string(),
+	artist: z.string(),
+	album: z.string(),
+	release_date: z
+		.string()
+		.refine(
+			(value) => value === '' || /^\d{4}(-\d{2}(-\d{2})?)?$/.test(value),
+			'Use YYYY, YYYY-MM, or YYYY-MM-DD'
+		),
+	genre: z.string(),
+	track_number: z
+		.string()
+		.refine((value) => value === '' || /^(0|[1-9]\d*)$/.test(value), 'Enter a nonnegative integer'),
+	disc_number: z
+		.string()
+		.refine((value) => value === '' || /^(0|[1-9]\d*)$/.test(value), 'Enter a nonnegative integer')
+});
+
+export const albumMetadataFormSchema = z.object({
+	name: z.string().min(1, 'Name is required'),
+	artist: z.string().min(1, 'Artist is required'),
+	release_date: z
+		.string()
+		.refine(
+			(value) => value === '' || /^\d{4}(-\d{2}(-\d{2})?)?$/.test(value),
+			'Use YYYY, YYYY-MM, or YYYY-MM-DD'
+		),
+	genre: z.string()
+});
+
 export type PingResponse = z.infer<typeof pingResponseSchema>;
 export type LibraryStatus = z.infer<typeof libraryStatusSchema>;
 export type ErrorBody = z.infer<typeof errorBodySchema>;
@@ -134,6 +195,11 @@ export type ArtistPage = z.infer<typeof artistPageSchema>;
 export type Album = z.infer<typeof albumSchema>;
 export type AlbumPage = z.infer<typeof albumPageSchema>;
 export type SearchResponse = z.infer<typeof searchResponseSchema>;
+export type TrackMetadataPatch = z.infer<typeof trackMetadataPatchSchema>;
+export type AlbumMetadataPatch = z.infer<typeof albumMetadataPatchSchema>;
+export type AlbumPatchResponse = z.infer<typeof albumPatchResponseSchema>;
+export type TrackMetadataForm = z.infer<typeof trackMetadataFormSchema>;
+export type AlbumMetadataForm = z.infer<typeof albumMetadataFormSchema>;
 export type PageEnvelope<T> = {
 	items: T[];
 	total: number;

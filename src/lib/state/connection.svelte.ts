@@ -15,6 +15,8 @@ export type ConnectionControllerOptions = {
 	storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
 	fetch?: FetchLike;
 	createClient?: typeof createMediaServerClient;
+	/** Poll interval while libraryStatus.scanning is true. Default 2000ms. */
+	scanPollIntervalMs?: number;
 };
 
 function toMediaServerError(cause: unknown): MediaServerError {
@@ -44,11 +46,16 @@ export class ConnectionController {
 	error = $state<MediaServerError | null>(null);
 	/** true/false after probe; null when unknown or not connected */
 	hasUserDb = $state<boolean | null>(null);
+	scanPending = $state(false);
+	scanError = $state<string | null>(null);
 
 	#storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
 	#fetch: FetchLike;
 	#createClient: typeof createMediaServerClient;
 	#probeController: AbortController | null = null;
+	#statusController: AbortController | null = null;
+	#scanPollTimer: ReturnType<typeof setInterval> | null = null;
+	#scanPollIntervalMs: number;
 
 	constructor(options: ConnectionControllerOptions = {}) {
 		this.#storage =
@@ -59,10 +66,43 @@ export class ConnectionController {
 				: options.storage;
 		this.#fetch = options.fetch ?? fetch;
 		this.#createClient = options.createClient ?? createMediaServerClient;
+		this.#scanPollIntervalMs = options.scanPollIntervalMs ?? 2000;
 	}
 
 	get isConnected(): boolean {
 		return this.status === 'connected' && this.baseUrl !== null;
+	}
+
+	#client() {
+		if (!this.baseUrl) {
+			throw new Error('Not connected');
+		}
+		return this.#createClient({
+			baseUrl: this.baseUrl,
+			fetch: this.#fetch
+		});
+	}
+
+	#stopScanPoll() {
+		if (this.#scanPollTimer !== null) {
+			clearInterval(this.#scanPollTimer);
+			this.#scanPollTimer = null;
+		}
+		this.#statusController?.abort();
+		this.#statusController = null;
+	}
+
+	#syncScanPoll() {
+		const scanning = this.status === 'connected' && this.libraryStatus?.scanning === true;
+		if (!scanning) {
+			this.#stopScanPoll();
+			return;
+		}
+		if (this.#scanPollTimer !== null) return;
+
+		this.#scanPollTimer = setInterval(() => {
+			void this.refreshLibraryStatus();
+		}, this.#scanPollIntervalMs);
 	}
 
 	restore(): string | null {
@@ -108,6 +148,7 @@ export class ConnectionController {
 
 	async connect(rawBaseUrl: string): Promise<boolean> {
 		this.#probeController?.abort();
+		this.#stopScanPoll();
 		const probe = new AbortController();
 		this.#probeController = probe;
 
@@ -115,6 +156,8 @@ export class ConnectionController {
 		this.error = null;
 		this.libraryStatus = null;
 		this.hasUserDb = null;
+		this.scanError = null;
+		this.scanPending = false;
 
 		try {
 			const normalized = normalizeBaseUrl(rawBaseUrl);
@@ -142,6 +185,7 @@ export class ConnectionController {
 			this.status = 'connected';
 			this.error = null;
 			this.#storage?.setItem(CONNECTION_STORAGE_KEY, client.baseUrl);
+			this.#syncScanPoll();
 			return true;
 		} catch (cause) {
 			if (probe.signal.aborted) {
@@ -176,14 +220,75 @@ export class ConnectionController {
 		return this.connect(this.baseUrl!);
 	}
 
+	async refreshLibraryStatus(): Promise<boolean> {
+		if (this.status !== 'connected' || !this.baseUrl) {
+			return false;
+		}
+
+		this.#statusController?.abort();
+		const abort = new AbortController();
+		this.#statusController = abort;
+
+		try {
+			const status = await this.#client().getLibraryStatus(abort.signal);
+			if (abort.signal.aborted) {
+				return false;
+			}
+			this.libraryStatus = status;
+			this.#syncScanPoll();
+			return true;
+		} catch (cause) {
+			if (abort.signal.aborted) {
+				return false;
+			}
+			if (cause instanceof MediaServerRequestError && cause.error.kind === 'aborted') {
+				return false;
+			}
+			return false;
+		} finally {
+			if (this.#statusController === abort) {
+				this.#statusController = null;
+			}
+		}
+	}
+
+	async startScan(force = false): Promise<boolean> {
+		if (this.status !== 'connected' || !this.baseUrl) {
+			this.scanError = 'Connect to a media server before scanning.';
+			return false;
+		}
+
+		this.scanPending = true;
+		this.scanError = null;
+
+		try {
+			await this.#client().startLibraryScan({ force });
+			await this.refreshLibraryStatus();
+			return true;
+		} catch (cause) {
+			if (cause instanceof MediaServerRequestError && cause.error.status === 409) {
+				this.scanError = 'A library scan is already in progress.';
+				await this.refreshLibraryStatus();
+				return false;
+			}
+			this.scanError = cause instanceof Error ? cause.message : 'Could not start a library scan.';
+			return false;
+		} finally {
+			this.scanPending = false;
+		}
+	}
+
 	disconnect(): void {
 		this.#probeController?.abort();
 		this.#probeController = null;
+		this.#stopScanPoll();
 		this.#storage?.removeItem(CONNECTION_STORAGE_KEY);
 		this.baseUrl = null;
 		this.libraryStatus = null;
 		this.error = null;
 		this.hasUserDb = null;
+		this.scanPending = false;
+		this.scanError = null;
 		this.status = 'idle';
 	}
 }

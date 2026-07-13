@@ -227,6 +227,79 @@ describe('createMediaServerClient', () => {
 		});
 	});
 
+	it('gets a track and patches metadata', async () => {
+		const track = trackFixture({ id: 11, title: 'Original' });
+		const updated = trackFixture({ id: 11, title: 'Corrected', overridden_fields: ['title'] });
+		let patchBody: string | null = null;
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: async (input, init) => {
+				const url = String(input);
+				const method = init?.method ?? 'GET';
+				if (url === `${baseUrl}/api/tracks/11` && method === 'GET') {
+					return jsonResponse(track);
+				}
+				if (url === `${baseUrl}/api/tracks/11` && method === 'PATCH') {
+					patchBody = String(init?.body);
+					return jsonResponse(updated);
+				}
+				return errorResponse(404, 'not_found');
+			}
+		});
+
+		await expect(client.getTrack(11)).resolves.toEqual(track);
+		await expect(client.updateTrack(11, { title: 'Corrected', genre: null })).resolves.toEqual(
+			updated
+		);
+		expect(patchBody).toBe(JSON.stringify({ title: 'Corrected', genre: null }));
+	});
+
+	it('patches album metadata and starts library scans', async () => {
+		let albumBody: string | null = null;
+		let scanUrl: string | null = null;
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: async (input, init) => {
+				const url = String(input);
+				const method = init?.method ?? 'GET';
+				if (url === `${baseUrl}/api/albums/4` && method === 'PATCH') {
+					albumBody = String(init?.body);
+					return jsonResponse({ updated_track_count: 3 });
+				}
+				if (url.split('?')[0] === `${baseUrl}/api/library/scan` && method === 'POST') {
+					scanUrl = url;
+					return new Response('', { status: 202 });
+				}
+				return errorResponse(404, 'not_found');
+			}
+		});
+
+		await expect(client.updateAlbum(4, { name: 'Renamed', release_date: null })).resolves.toEqual({
+			updated_track_count: 3
+		});
+		expect(albumBody).toBe(JSON.stringify({ name: 'Renamed', release_date: null }));
+		await expect(client.startLibraryScan()).resolves.toBeUndefined();
+		expect(scanUrl).toBe(`${baseUrl}/api/library/scan`);
+		await expect(client.startLibraryScan({ force: true })).resolves.toBeUndefined();
+		expect(scanUrl).toBe(`${baseUrl}/api/library/scan?force=1`);
+	});
+
+	it('maps 409 when a library scan is already running', async () => {
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: createFetchStub([
+				{
+					url: `${baseUrl}/api/library/scan`,
+					response: errorResponse(409, 'scan_in_progress')
+				}
+			])
+		});
+
+		await expect(client.startLibraryScan()).rejects.toMatchObject({
+			error: { kind: 'http', status: 409, code: 'scan_in_progress' }
+		});
+	});
+
 	it('records history for a track id', async () => {
 		let body: string | null = null;
 		const client = createMediaServerClient({

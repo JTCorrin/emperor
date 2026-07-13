@@ -5,6 +5,7 @@ export {
 	type MediaServerClient,
 	type MediaServerClientOptions,
 	type PaginationQuery,
+	type LibraryScanOptions,
 	type SearchQuery
 } from './client';
 export {
@@ -19,6 +20,9 @@ export {
 export {
 	albumPageSchema,
 	albumSchema,
+	albumMetadataFormSchema,
+	albumMetadataPatchSchema,
+	albumPatchResponseSchema,
 	artistPageSchema,
 	artistSchema,
 	connectFormSchema,
@@ -33,10 +37,15 @@ export {
 	playlistNameBodySchema,
 	playlistTracksBodySchema,
 	searchResponseSchema,
+	trackMetadataFormSchema,
+	trackMetadataPatchSchema,
 	trackPageSchema,
 	trackSchema,
 	type Album,
+	type AlbumMetadataForm,
+	type AlbumMetadataPatch,
 	type AlbumPage,
+	type AlbumPatchResponse,
 	type Artist,
 	type ArtistPage,
 	type ConnectForm,
@@ -52,6 +61,8 @@ export {
 	type PlaylistTracksBody,
 	type SearchResponse,
 	type Track,
+	type TrackMetadataForm,
+	type TrackMetadataPatch,
 	type TrackPage
 } from './schemas';
 export { apiUrl, BaseUrlError, coverUrl, normalizeBaseUrl, streamUrl } from './url';
