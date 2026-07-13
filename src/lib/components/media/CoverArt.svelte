@@ -6,7 +6,7 @@
 		artist?: string;
 		coverId?: number | null;
 		baseUrl?: string | null;
-		size?: 'sm' | 'md' | 'lg';
+		size?: 'sm' | 'md' | 'lg' | 'card';
 		class?: string;
 	}
 
@@ -34,7 +34,13 @@
 	});
 
 	const sizeClass = $derived(
-		size === 'lg' ? 'size-56 sm:size-72' : size === 'sm' ? 'size-14' : 'size-16'
+		size === 'lg'
+			? 'size-56 sm:size-72'
+			: size === 'sm'
+				? 'size-14'
+				: size === 'card'
+					? 'aspect-square w-full'
+					: 'size-16'
 	);
 </script>
 

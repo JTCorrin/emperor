@@ -9,9 +9,11 @@ import {
 	errorBodySchema,
 	libraryStatusSchema,
 	pingResponseSchema,
+	playlistPageSchema,
 	trackPageSchema,
 	type LibraryStatus,
 	type PingResponse,
+	type PlaylistPage,
 	type TrackPage
 } from './schemas';
 import { apiUrl, normalizeBaseUrl } from './url';
@@ -34,6 +36,10 @@ export type MediaServerClient = {
 	ping: (signal?: AbortSignal) => Promise<PingResponse>;
 	getLibraryStatus: (signal?: AbortSignal) => Promise<LibraryStatus>;
 	getDiscoverRandom: (query?: PaginationQuery) => Promise<TrackPage>;
+	getDiscoverRecent: (query?: PaginationQuery) => Promise<TrackPage>;
+	getRecentlyPlayed: (query?: PaginationQuery) => Promise<TrackPage>;
+	getPlaylists: (query?: PaginationQuery) => Promise<PlaylistPage>;
+	getFavourites: (query?: PaginationQuery) => Promise<TrackPage>;
 	recordHistory: (trackId: number, signal?: AbortSignal) => Promise<void>;
 };
 
@@ -111,6 +117,17 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 		}
 	}
 
+	function getTrackPage(path: string, query: PaginationQuery = {}): Promise<TrackPage> {
+		return requestJson(
+			withQuery(path, {
+				limit: query.limit,
+				offset: query.offset
+			}),
+			trackPageSchema,
+			{ signal: query.signal }
+		) as Promise<TrackPage>;
+	}
+
 	return {
 		baseUrl,
 		ping: (signal) =>
@@ -119,15 +136,19 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 			requestJson('/api/library/status', libraryStatusSchema, {
 				signal
 			}) as Promise<LibraryStatus>,
-		getDiscoverRandom: (query = {}) =>
+		getDiscoverRandom: (query = {}) => getTrackPage('/api/discover/random', query),
+		getDiscoverRecent: (query = {}) => getTrackPage('/api/discover/recent', query),
+		getRecentlyPlayed: (query = {}) => getTrackPage('/api/discover/recently-played', query),
+		getPlaylists: (query = {}) =>
 			requestJson(
-				withQuery('/api/discover/random', {
+				withQuery('/api/playlists', {
 					limit: query.limit,
 					offset: query.offset
 				}),
-				trackPageSchema,
+				playlistPageSchema,
 				{ signal: query.signal }
-			) as Promise<TrackPage>,
+			) as Promise<PlaylistPage>,
+		getFavourites: (query = {}) => getTrackPage('/api/favourites', query),
 		recordHistory: async (trackId, signal) => {
 			await requestJson('/api/history', null, {
 				method: 'POST',

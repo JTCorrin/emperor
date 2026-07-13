@@ -62,12 +62,33 @@ export function pageEnvelopeSchema<T extends z.ZodType>(itemSchema: T) {
 
 export const trackPageSchema = pageEnvelopeSchema(trackSchema);
 
+export const playlistSchema = z.object({
+	id: z.number().int().positive(),
+	name: z.string(),
+	track_count: z.number().int().nonnegative(),
+	created_unix: z.number().int(),
+	updated_unix: z.number().int()
+});
+
+export const playlistPageSchema = pageEnvelopeSchema(playlistSchema);
+
+export const historyItemSchema = z.object({
+	track: trackSchema,
+	played_unix: z.number().int()
+});
+
+export const historyPageSchema = pageEnvelopeSchema(historyItemSchema);
+
 export type PingResponse = z.infer<typeof pingResponseSchema>;
 export type LibraryStatus = z.infer<typeof libraryStatusSchema>;
 export type ErrorBody = z.infer<typeof errorBodySchema>;
 export type ConnectForm = z.infer<typeof connectFormSchema>;
 export type Track = z.infer<typeof trackSchema>;
 export type TrackPage = z.infer<typeof trackPageSchema>;
+export type Playlist = z.infer<typeof playlistSchema>;
+export type PlaylistPage = z.infer<typeof playlistPageSchema>;
+export type HistoryItem = z.infer<typeof historyItemSchema>;
+export type HistoryPage = z.infer<typeof historyPageSchema>;
 export type PageEnvelope<T> = {
 	items: T[];
 	total: number;

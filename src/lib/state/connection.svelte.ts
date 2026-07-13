@@ -114,6 +114,11 @@ export class ConnectionController {
 			return true;
 		} catch (cause) {
 			if (probe.signal.aborted) {
+				if (this.baseUrl) {
+					this.status = 'disconnected';
+				} else {
+					this.status = 'idle';
+				}
 				return false;
 			}
 

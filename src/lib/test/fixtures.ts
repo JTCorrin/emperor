@@ -1,4 +1,13 @@
-import type { LibraryStatus, PingResponse, Track, TrackPage } from '$lib/api/schemas';
+import type {
+	HistoryItem,
+	HistoryPage,
+	LibraryStatus,
+	PingResponse,
+	Playlist,
+	PlaylistPage,
+	Track,
+	TrackPage
+} from '$lib/api/schemas';
 
 export function pingFixture(overrides: Partial<PingResponse> = {}): PingResponse {
 	return {
@@ -54,6 +63,51 @@ export function trackPageFixture(
 	};
 }
 
+export function playlistFixture(overrides: Partial<Playlist> = {}): Playlist {
+	return {
+		id: 1,
+		name: 'Mix',
+		track_count: 12,
+		created_unix: 1_710_000_000,
+		updated_unix: 1_710_000_100,
+		...overrides
+	};
+}
+
+export function playlistPageFixture(
+	items: Playlist[] = [playlistFixture()],
+	overrides: Partial<PlaylistPage> = {}
+): PlaylistPage {
+	return {
+		items,
+		total: items.length,
+		limit: 50,
+		offset: 0,
+		...overrides
+	};
+}
+
+export function historyItemFixture(overrides: Partial<HistoryItem> = {}): HistoryItem {
+	return {
+		track: trackFixture(),
+		played_unix: 1_710_000_000,
+		...overrides
+	};
+}
+
+export function historyPageFixture(
+	items: HistoryItem[] = [historyItemFixture()],
+	overrides: Partial<HistoryPage> = {}
+): HistoryPage {
+	return {
+		items,
+		total: items.length,
+		limit: 50,
+		offset: 0,
+		...overrides
+	};
+}
+
 export function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 	return new Response(JSON.stringify(body), {
 		status: 200,
@@ -82,7 +136,7 @@ export function createFetchStub(routes: StubRoute[]): typeof fetch {
 		for (const route of routes) {
 			const matches =
 				typeof route.url === 'string'
-					? url === route.url || url.startsWith(route.url)
+					? url === route.url || url.split('?')[0] === route.url
 					: route.url.test(url);
 			if (!matches) continue;
 			return typeof route.response === 'function' ? await route.response() : route.response;

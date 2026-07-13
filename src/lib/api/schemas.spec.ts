@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
 	connectFormSchema,
+	historyItemSchema,
 	libraryStatusSchema,
 	pingResponseSchema,
+	playlistSchema,
 	trackPageSchema,
 	trackSchema
 } from '$lib/api/schemas';
 import {
+	historyItemFixture,
 	libraryStatusFixture,
 	pingFixture,
+	playlistFixture,
 	trackFixture,
 	trackPageFixture
 } from '$lib/test/fixtures';
@@ -31,6 +35,14 @@ describe('API schemas', () => {
 		expect(trackPageSchema.parse(trackPageFixture([track]))).toMatchObject({
 			total: 1,
 			items: [track]
+		});
+	});
+
+	it('accepts playlist and history items', () => {
+		expect(playlistSchema.parse(playlistFixture())).toMatchObject({ name: 'Mix' });
+		expect(historyItemSchema.parse(historyItemFixture())).toMatchObject({
+			played_unix: 1_710_000_000,
+			track: { id: 1 }
 		});
 	});
 

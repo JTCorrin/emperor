@@ -6,6 +6,8 @@ import {
 	jsonResponse,
 	libraryStatusFixture,
 	pingFixture,
+	playlistFixture,
+	playlistPageFixture,
 	trackFixture,
 	trackPageFixture
 } from '$lib/test/fixtures';
@@ -47,6 +49,38 @@ describe('createMediaServerClient', () => {
 		});
 
 		await expect(client.getDiscoverRandom({ limit: 10 })).resolves.toEqual(page);
+	});
+
+	it('returns recent, recently played, playlists, and favourites', async () => {
+		const tracks = trackPageFixture([trackFixture({ id: 3 })]);
+		const playlists = playlistPageFixture([playlistFixture({ id: 8, name: 'Drive' })]);
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/discover/recent`, response: jsonResponse(tracks) },
+				{ url: `${baseUrl}/api/discover/recently-played`, response: jsonResponse(tracks) },
+				{ url: `${baseUrl}/api/playlists`, response: jsonResponse(playlists) },
+				{ url: `${baseUrl}/api/favourites`, response: jsonResponse(tracks) }
+			])
+		});
+
+		await expect(client.getDiscoverRecent()).resolves.toEqual(tracks);
+		await expect(client.getRecentlyPlayed()).resolves.toEqual(tracks);
+		await expect(client.getPlaylists()).resolves.toEqual(playlists);
+		await expect(client.getFavourites()).resolves.toEqual(tracks);
+	});
+
+	it('maps no_user_db on favourites', async () => {
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/favourites`, response: errorResponse(400, 'no_user_db') }
+			])
+		});
+
+		await expect(client.getFavourites()).rejects.toMatchObject({
+			error: { kind: 'no_user_db' }
+		});
 	});
 
 	it('records history for a track id', async () => {
