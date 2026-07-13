@@ -1,4 +1,4 @@
-import type { LibraryStatus, PingResponse } from '$lib/api/schemas';
+import type { LibraryStatus, PingResponse, Track, TrackPage } from '$lib/api/schemas';
 
 export function pingFixture(overrides: Partial<PingResponse> = {}): PingResponse {
 	return {
@@ -19,6 +19,37 @@ export function libraryStatusFixture(overrides: Partial<LibraryStatus> = {}): Li
 		image_count: 2,
 		artist_count: 3,
 		album_count: 4,
+		...overrides
+	};
+}
+
+export function trackFixture(overrides: Partial<Track> = {}): Track {
+	return {
+		id: 1,
+		kind: 'audio',
+		path: 'Artist/Album/track01.mp3',
+		filename: 'track01.mp3',
+		artist: 'Artist',
+		album: 'Album',
+		title: 'Track One',
+		release_date: null,
+		genre: null,
+		track_number: 1,
+		disc_number: 1,
+		overridden_fields: [],
+		...overrides
+	};
+}
+
+export function trackPageFixture(
+	items: Track[] = [trackFixture()],
+	overrides: Partial<TrackPage> = {}
+): TrackPage {
+	return {
+		items,
+		total: items.length,
+		limit: 50,
+		offset: 0,
 		...overrides
 	};
 }

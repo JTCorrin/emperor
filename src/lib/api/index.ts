@@ -18,10 +18,16 @@ export {
 	connectFormSchema,
 	errorBodySchema,
 	libraryStatusSchema,
+	pageEnvelopeSchema,
 	pingResponseSchema,
+	trackPageSchema,
+	trackSchema,
 	type ConnectForm,
 	type ErrorBody,
 	type LibraryStatus,
-	type PingResponse
+	type PageEnvelope,
+	type PingResponse,
+	type Track,
+	type TrackPage
 } from './schemas';
 export { apiUrl, BaseUrlError, coverUrl, normalizeBaseUrl, streamUrl } from './url';

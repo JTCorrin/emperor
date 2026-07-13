@@ -36,7 +36,41 @@ export const connectFormSchema = z.object({
 		}, 'Enter a valid http or https URL')
 });
 
+export const trackSchema = z.object({
+	id: z.number().int().positive(),
+	kind: z.literal('audio'),
+	path: z.string(),
+	filename: z.string(),
+	artist: z.string(),
+	album: z.string(),
+	title: z.string(),
+	release_date: z.string().nullable(),
+	genre: z.string().nullable(),
+	track_number: z.number().int().nullable(),
+	disc_number: z.number().int().nullable(),
+	overridden_fields: z.array(z.string())
+});
+
+export function pageEnvelopeSchema<T extends z.ZodType>(itemSchema: T) {
+	return z.object({
+		items: z.array(itemSchema),
+		total: z.number().int().nonnegative(),
+		limit: z.number().int().positive(),
+		offset: z.number().int().nonnegative()
+	});
+}
+
+export const trackPageSchema = pageEnvelopeSchema(trackSchema);
+
 export type PingResponse = z.infer<typeof pingResponseSchema>;
 export type LibraryStatus = z.infer<typeof libraryStatusSchema>;
 export type ErrorBody = z.infer<typeof errorBodySchema>;
 export type ConnectForm = z.infer<typeof connectFormSchema>;
+export type Track = z.infer<typeof trackSchema>;
+export type TrackPage = z.infer<typeof trackPageSchema>;
+export type PageEnvelope<T> = {
+	items: T[];
+	total: number;
+	limit: number;
+	offset: number;
+};

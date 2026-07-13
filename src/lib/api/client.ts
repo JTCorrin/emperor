@@ -9,8 +9,10 @@ import {
 	errorBodySchema,
 	libraryStatusSchema,
 	pingResponseSchema,
+	trackPageSchema,
 	type LibraryStatus,
-	type PingResponse
+	type PingResponse,
+	type TrackPage
 } from './schemas';
 import { apiUrl, normalizeBaseUrl } from './url';
 
@@ -21,10 +23,18 @@ export type MediaServerClientOptions = {
 	fetch?: FetchLike;
 };
 
+export type PaginationQuery = {
+	limit?: number;
+	offset?: number;
+	signal?: AbortSignal;
+};
+
 export type MediaServerClient = {
 	baseUrl: string;
 	ping: (signal?: AbortSignal) => Promise<PingResponse>;
 	getLibraryStatus: (signal?: AbortSignal) => Promise<LibraryStatus>;
+	getDiscoverRandom: (query?: PaginationQuery) => Promise<TrackPage>;
+	recordHistory: (trackId: number, signal?: AbortSignal) => Promise<void>;
 };
 
 export class MediaServerRequestError extends Error {
@@ -37,24 +47,34 @@ export class MediaServerRequestError extends Error {
 	}
 }
 
+function withQuery(path: string, query: Record<string, string | number | undefined>): string {
+	const params = new URLSearchParams();
+	for (const [key, value] of Object.entries(query)) {
+		if (value === undefined) continue;
+		params.set(key, String(value));
+	}
+	const qs = params.toString();
+	return qs ? `${path}?${qs}` : path;
+}
+
 export function createMediaServerClient(options: MediaServerClientOptions): MediaServerClient {
 	const baseUrl = normalizeBaseUrl(options.baseUrl);
 	const fetchImpl = options.fetch ?? fetch;
 
 	async function requestJson<T>(
 		path: string,
-		schema: { parse: (data: unknown) => T },
-		signal?: AbortSignal
-	): Promise<T> {
+		schema: { parse: (data: unknown) => T } | null,
+		init: RequestInit = {}
+	): Promise<T | void> {
 		let response: Response;
 		try {
 			response = await fetchImpl(apiUrl(baseUrl, path), {
 				method: 'GET',
-				headers: { Accept: 'application/json' },
-				signal
+				headers: { Accept: 'application/json', ...(init.headers ?? {}) },
+				...init
 			});
 		} catch (cause) {
-			if (signal?.aborted || (cause instanceof DOMException && cause.name === 'AbortError')) {
+			if (init.signal?.aborted || (cause instanceof DOMException && cause.name === 'AbortError')) {
 				throw new MediaServerRequestError(abortedError(cause));
 			}
 			throw new MediaServerRequestError(networkError(cause));
@@ -80,6 +100,10 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 			);
 		}
 
+		if (!schema) {
+			return;
+		}
+
 		try {
 			return schema.parse(body);
 		} catch (cause) {
@@ -89,7 +113,31 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 
 	return {
 		baseUrl,
-		ping: (signal) => requestJson('/api/ping', pingResponseSchema, signal),
-		getLibraryStatus: (signal) => requestJson('/api/library/status', libraryStatusSchema, signal)
+		ping: (signal) =>
+			requestJson('/api/ping', pingResponseSchema, { signal }) as Promise<PingResponse>,
+		getLibraryStatus: (signal) =>
+			requestJson('/api/library/status', libraryStatusSchema, {
+				signal
+			}) as Promise<LibraryStatus>,
+		getDiscoverRandom: (query = {}) =>
+			requestJson(
+				withQuery('/api/discover/random', {
+					limit: query.limit,
+					offset: query.offset
+				}),
+				trackPageSchema,
+				{ signal: query.signal }
+			) as Promise<TrackPage>,
+		recordHistory: async (trackId, signal) => {
+			await requestJson('/api/history', null, {
+				method: 'POST',
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ track_id: trackId }),
+				signal
+			});
+		}
 	};
 }

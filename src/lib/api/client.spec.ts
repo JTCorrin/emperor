@@ -5,7 +5,9 @@ import {
 	errorResponse,
 	jsonResponse,
 	libraryStatusFixture,
-	pingFixture
+	pingFixture,
+	trackFixture,
+	trackPageFixture
 } from '$lib/test/fixtures';
 
 const baseUrl = 'http://192.168.5.111:8080';
@@ -33,6 +35,47 @@ describe('createMediaServerClient', () => {
 		});
 
 		await expect(client.getLibraryStatus()).resolves.toEqual(status);
+	});
+
+	it('returns discover random tracks', async () => {
+		const page = trackPageFixture([trackFixture({ id: 9, title: 'Random' })]);
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/discover/random`, response: jsonResponse(page) }
+			])
+		});
+
+		await expect(client.getDiscoverRandom({ limit: 10 })).resolves.toEqual(page);
+	});
+
+	it('records history for a track id', async () => {
+		let body: string | null = null;
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: async (input, init) => {
+				expect(String(input)).toBe(`${baseUrl}/api/history`);
+				expect(init?.method).toBe('POST');
+				body = String(init?.body);
+				return jsonResponse({}, { status: 200 });
+			}
+		});
+
+		await expect(client.recordHistory(42)).resolves.toBeUndefined();
+		expect(body).toBe(JSON.stringify({ track_id: 42 }));
+	});
+
+	it('maps no_user_db on history without crashing the client shape', async () => {
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/history`, response: errorResponse(400, 'no_user_db') }
+			])
+		});
+
+		await expect(client.recordHistory(1)).rejects.toMatchObject({
+			error: { kind: 'no_user_db', code: 'no_user_db', status: 400 }
+		});
 	});
 
 	it('normalizes no_user_db responses', async () => {
