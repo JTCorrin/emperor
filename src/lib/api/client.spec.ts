@@ -8,6 +8,11 @@ import {
 	pingFixture,
 	playlistFixture,
 	playlistPageFixture,
+	albumFixture,
+	albumPageFixture,
+	artistFixture,
+	artistPageFixture,
+	searchResponseFixture,
 	trackFixture,
 	trackPageFixture
 } from '$lib/test/fixtures';
@@ -68,6 +73,55 @@ describe('createMediaServerClient', () => {
 		await expect(client.getRecentlyPlayed()).resolves.toEqual(tracks);
 		await expect(client.getPlaylists()).resolves.toEqual(playlists);
 		await expect(client.getFavourites()).resolves.toEqual(tracks);
+	});
+
+	it('returns tracks, artists, albums, detail, and search', async () => {
+		const tracks = trackPageFixture([trackFixture({ id: 11, title: 'Browse Track' })]);
+		const artists = artistPageFixture([artistFixture({ id: 2, name: 'Browse Artist' })]);
+		const albums = albumPageFixture([albumFixture({ id: 4, name: 'Browse Album' })]);
+		const artist = artistFixture({ id: 2, name: 'Browse Artist' });
+		const album = albumFixture({ id: 4, name: 'Browse Album' });
+		const search = searchResponseFixture({
+			q: 'browse',
+			tracks,
+			artists,
+			albums
+		});
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/tracks`, response: jsonResponse(tracks) },
+				{ url: `${baseUrl}/api/artists`, response: jsonResponse(artists) },
+				{ url: `${baseUrl}/api/artists/2`, response: jsonResponse(artist) },
+				{ url: `${baseUrl}/api/artists/2/albums`, response: jsonResponse(albums) },
+				{ url: `${baseUrl}/api/albums`, response: jsonResponse(albums) },
+				{ url: `${baseUrl}/api/albums/4`, response: jsonResponse(album) },
+				{ url: `${baseUrl}/api/albums/4/tracks`, response: jsonResponse(tracks) },
+				{ url: `${baseUrl}/api/search`, response: jsonResponse(search) }
+			])
+		});
+
+		await expect(client.getTracks({ limit: 50 })).resolves.toEqual(tracks);
+		await expect(client.getArtists()).resolves.toEqual(artists);
+		await expect(client.getArtist(2)).resolves.toEqual(artist);
+		await expect(client.getArtistAlbums(2)).resolves.toEqual(albums);
+		await expect(client.getAlbums()).resolves.toEqual(albums);
+		await expect(client.getAlbum(4)).resolves.toEqual(album);
+		await expect(client.getAlbumTracks(4)).resolves.toEqual(tracks);
+		await expect(client.search({ q: 'browse', limit: 20 })).resolves.toEqual(search);
+	});
+
+	it('maps 404 on missing album', async () => {
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/albums/999`, response: errorResponse(404, 'not_found') }
+			])
+		});
+
+		await expect(client.getAlbum(999)).rejects.toMatchObject({
+			error: { kind: 'http', status: 404 }
+		});
 	});
 
 	it('maps no_user_db on favourites', async () => {

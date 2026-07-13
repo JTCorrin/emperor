@@ -7,13 +7,13 @@
 	import MediaGrid from '$lib/components/media/MediaGrid.svelte';
 	import { PaginatedListController } from '$lib/features/browse/paginatedList.svelte';
 	import { getConnection } from '$lib/state/context';
-	import type { Album } from '$lib/api';
+	import type { Artist } from '$lib/api';
 
 	const connection = getConnection();
 
-	const list = new PaginatedListController<Album>({
+	const list = new PaginatedListController<Artist>({
 		getBaseUrl: () => connection.baseUrl,
-		fetchPage: (client, query) => client.getAlbums(query)
+		fetchPage: (client, query) => client.getArtists(query)
 	});
 
 	onDestroy(() => list.dispose());
@@ -28,22 +28,14 @@
 </script>
 
 <section class="flex flex-1 flex-col gap-6 pb-4">
-	<div class="flex flex-wrap items-end justify-between gap-4">
-		<div class="flex flex-col gap-2">
-			<h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Albums</h1>
-			<p class="text-text-muted max-w-2xl text-lg">Cover-led album browse.</p>
-		</div>
-		<a
-			href={resolve('/artists')}
-			class="border-border bg-surface-muted hover:border-accent min-h-touch inline-flex items-center rounded-card border px-5 text-base font-semibold"
-		>
-			Artists
-		</a>
+	<div class="flex flex-col gap-2">
+		<h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Artists</h1>
+		<p class="text-text-muted max-w-2xl text-lg">Browse artists, then open their albums.</p>
 	</div>
 
 	{#if connection.status !== 'connected'}
 		<div class="border-border bg-surface-raised rounded-card border p-6">
-			<p class="text-lg">Connect to a media server to browse albums.</p>
+			<p class="text-lg">Connect to a media server to browse artists.</p>
 			<a
 				href={resolve('/connect')}
 				class="bg-accent text-text hover:bg-accent-strong mt-4 inline-flex min-h-touch items-center rounded-card px-5 text-base font-semibold"
@@ -54,18 +46,17 @@
 	{:else}
 		<MediaGrid
 			status={list.status}
-			emptyMessage="No albums in the library yet."
-			errorMessage={list.errorMessage ?? 'Could not load albums.'}
+			emptyMessage="No artists in the library yet."
+			errorMessage={list.errorMessage ?? 'Could not load artists.'}
 			onretry={() => list.load()}
 		>
-			{#each list.items as album (album.id)}
+			{#each list.items as artist (artist.id)}
 				<MediaCard
 					layout="grid"
-					title={album.name}
-					subtitle={album.artist}
-					coverId={album.cover_id}
+					title={artist.name}
+					subtitle={`${artist.album_count} albums · ${artist.track_count} tracks`}
 					baseUrl={connection.baseUrl}
-					onclick={() => goto(resolve(`/albums/${album.id}`))}
+					onclick={() => goto(resolve(`/artists/${artist.id}`))}
 				/>
 			{/each}
 		</MediaGrid>

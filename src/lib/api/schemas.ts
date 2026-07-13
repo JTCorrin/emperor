@@ -79,6 +79,36 @@ export const historyItemSchema = z.object({
 
 export const historyPageSchema = pageEnvelopeSchema(historyItemSchema);
 
+export const artistSchema = z.object({
+	id: z.number().int().positive(),
+	name: z.string(),
+	album_count: z.number().int().nonnegative(),
+	track_count: z.number().int().nonnegative()
+});
+
+export const artistPageSchema = pageEnvelopeSchema(artistSchema);
+
+export const albumSchema = z.object({
+	id: z.number().int().positive(),
+	name: z.string(),
+	artist: z.string(),
+	artist_id: z.number().int().positive(),
+	track_count: z.number().int().nonnegative(),
+	release_date: z.string().nullable(),
+	genre: z.string().nullable(),
+	cover_id: z.number().int().positive().nullable()
+});
+
+export const albumPageSchema = pageEnvelopeSchema(albumSchema);
+
+export const searchResponseSchema = z.object({
+	q: z.string(),
+	fuzzy: z.boolean(),
+	tracks: trackPageSchema,
+	artists: artistPageSchema,
+	albums: albumPageSchema
+});
+
 export type PingResponse = z.infer<typeof pingResponseSchema>;
 export type LibraryStatus = z.infer<typeof libraryStatusSchema>;
 export type ErrorBody = z.infer<typeof errorBodySchema>;
@@ -89,6 +119,11 @@ export type Playlist = z.infer<typeof playlistSchema>;
 export type PlaylistPage = z.infer<typeof playlistPageSchema>;
 export type HistoryItem = z.infer<typeof historyItemSchema>;
 export type HistoryPage = z.infer<typeof historyPageSchema>;
+export type Artist = z.infer<typeof artistSchema>;
+export type ArtistPage = z.infer<typeof artistPageSchema>;
+export type Album = z.infer<typeof albumSchema>;
+export type AlbumPage = z.infer<typeof albumPageSchema>;
+export type SearchResponse = z.infer<typeof searchResponseSchema>;
 export type PageEnvelope<T> = {
 	items: T[];
 	total: number;

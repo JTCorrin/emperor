@@ -3,7 +3,9 @@ export {
 	MediaServerRequestError,
 	type FetchLike,
 	type MediaServerClient,
-	type MediaServerClientOptions
+	type MediaServerClientOptions,
+	type PaginationQuery,
+	type SearchQuery
 } from './client';
 export {
 	abortedError,
@@ -15,6 +17,10 @@ export {
 	type MediaServerErrorKind
 } from './errors';
 export {
+	albumPageSchema,
+	albumSchema,
+	artistPageSchema,
+	artistSchema,
 	connectFormSchema,
 	errorBodySchema,
 	historyItemSchema,
@@ -24,8 +30,13 @@ export {
 	pingResponseSchema,
 	playlistPageSchema,
 	playlistSchema,
+	searchResponseSchema,
 	trackPageSchema,
 	trackSchema,
+	type Album,
+	type AlbumPage,
+	type Artist,
+	type ArtistPage,
 	type ConnectForm,
 	type ErrorBody,
 	type HistoryItem,
@@ -35,6 +46,7 @@ export {
 	type PingResponse,
 	type Playlist,
 	type PlaylistPage,
+	type SearchResponse,
 	type Track,
 	type TrackPage
 } from './schemas';

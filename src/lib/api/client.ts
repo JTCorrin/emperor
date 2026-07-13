@@ -6,14 +6,24 @@ import {
 	type MediaServerError
 } from './errors';
 import {
+	albumPageSchema,
+	albumSchema,
+	artistPageSchema,
+	artistSchema,
 	errorBodySchema,
 	libraryStatusSchema,
 	pingResponseSchema,
 	playlistPageSchema,
+	searchResponseSchema,
 	trackPageSchema,
+	type Album,
+	type AlbumPage,
+	type Artist,
+	type ArtistPage,
 	type LibraryStatus,
 	type PingResponse,
 	type PlaylistPage,
+	type SearchResponse,
 	type TrackPage
 } from './schemas';
 import { apiUrl, normalizeBaseUrl } from './url';
@@ -31,10 +41,22 @@ export type PaginationQuery = {
 	signal?: AbortSignal;
 };
 
+export type SearchQuery = PaginationQuery & {
+	q: string;
+};
+
 export type MediaServerClient = {
 	baseUrl: string;
 	ping: (signal?: AbortSignal) => Promise<PingResponse>;
 	getLibraryStatus: (signal?: AbortSignal) => Promise<LibraryStatus>;
+	getTracks: (query?: PaginationQuery) => Promise<TrackPage>;
+	getArtists: (query?: PaginationQuery) => Promise<ArtistPage>;
+	getArtist: (id: number, signal?: AbortSignal) => Promise<Artist>;
+	getArtistAlbums: (id: number, query?: PaginationQuery) => Promise<AlbumPage>;
+	getAlbums: (query?: PaginationQuery) => Promise<AlbumPage>;
+	getAlbum: (id: number, signal?: AbortSignal) => Promise<Album>;
+	getAlbumTracks: (id: number, query?: PaginationQuery) => Promise<TrackPage>;
+	search: (query: SearchQuery) => Promise<SearchResponse>;
 	getDiscoverRandom: (query?: PaginationQuery) => Promise<TrackPage>;
 	getDiscoverRecent: (query?: PaginationQuery) => Promise<TrackPage>;
 	getRecentlyPlayed: (query?: PaginationQuery) => Promise<TrackPage>;
@@ -128,6 +150,28 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 		) as Promise<TrackPage>;
 	}
 
+	function getAlbumPage(path: string, query: PaginationQuery = {}): Promise<AlbumPage> {
+		return requestJson(
+			withQuery(path, {
+				limit: query.limit,
+				offset: query.offset
+			}),
+			albumPageSchema,
+			{ signal: query.signal }
+		) as Promise<AlbumPage>;
+	}
+
+	function getArtistPage(path: string, query: PaginationQuery = {}): Promise<ArtistPage> {
+		return requestJson(
+			withQuery(path, {
+				limit: query.limit,
+				offset: query.offset
+			}),
+			artistPageSchema,
+			{ signal: query.signal }
+		) as Promise<ArtistPage>;
+	}
+
 	return {
 		baseUrl,
 		ping: (signal) =>
@@ -136,6 +180,25 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 			requestJson('/api/library/status', libraryStatusSchema, {
 				signal
 			}) as Promise<LibraryStatus>,
+		getTracks: (query = {}) => getTrackPage('/api/tracks', query),
+		getArtists: (query = {}) => getArtistPage('/api/artists', query),
+		getArtist: (id, signal) =>
+			requestJson(`/api/artists/${id}`, artistSchema, { signal }) as Promise<Artist>,
+		getArtistAlbums: (id, query = {}) => getAlbumPage(`/api/artists/${id}/albums`, query),
+		getAlbums: (query = {}) => getAlbumPage('/api/albums', query),
+		getAlbum: (id, signal) =>
+			requestJson(`/api/albums/${id}`, albumSchema, { signal }) as Promise<Album>,
+		getAlbumTracks: (id, query = {}) => getTrackPage(`/api/albums/${id}/tracks`, query),
+		search: (query) =>
+			requestJson(
+				withQuery('/api/search', {
+					q: query.q,
+					limit: query.limit,
+					offset: query.offset
+				}),
+				searchResponseSchema,
+				{ signal: query.signal }
+			) as Promise<SearchResponse>,
 		getDiscoverRandom: (query = {}) => getTrackPage('/api/discover/random', query),
 		getDiscoverRecent: (query = {}) => getTrackPage('/api/discover/recent', query),
 		getRecentlyPlayed: (query = {}) => getTrackPage('/api/discover/recently-played', query),

@@ -1,10 +1,15 @@
 import type {
+	Album,
+	AlbumPage,
+	Artist,
+	ArtistPage,
 	HistoryItem,
 	HistoryPage,
 	LibraryStatus,
 	PingResponse,
 	Playlist,
 	PlaylistPage,
+	SearchResponse,
 	Track,
 	TrackPage
 } from '$lib/api/schemas';
@@ -104,6 +109,67 @@ export function historyPageFixture(
 		total: items.length,
 		limit: 50,
 		offset: 0,
+		...overrides
+	};
+}
+
+export function artistFixture(overrides: Partial<Artist> = {}): Artist {
+	return {
+		id: 1,
+		name: 'Artist',
+		album_count: 2,
+		track_count: 10,
+		...overrides
+	};
+}
+
+export function artistPageFixture(
+	items: Artist[] = [artistFixture()],
+	overrides: Partial<ArtistPage> = {}
+): ArtistPage {
+	return {
+		items,
+		total: items.length,
+		limit: 50,
+		offset: 0,
+		...overrides
+	};
+}
+
+export function albumFixture(overrides: Partial<Album> = {}): Album {
+	return {
+		id: 1,
+		name: 'Album',
+		artist: 'Artist',
+		artist_id: 1,
+		track_count: 10,
+		release_date: null,
+		genre: null,
+		cover_id: null,
+		...overrides
+	};
+}
+
+export function albumPageFixture(
+	items: Album[] = [albumFixture()],
+	overrides: Partial<AlbumPage> = {}
+): AlbumPage {
+	return {
+		items,
+		total: items.length,
+		limit: 50,
+		offset: 0,
+		...overrides
+	};
+}
+
+export function searchResponseFixture(overrides: Partial<SearchResponse> = {}): SearchResponse {
+	return {
+		q: 'test',
+		fuzzy: false,
+		tracks: trackPageFixture(),
+		artists: artistPageFixture(),
+		albums: albumPageFixture(),
 		...overrides
 	};
 }

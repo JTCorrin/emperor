@@ -7,16 +7,28 @@
 		subtitle?: string;
 		coverId?: number | null;
 		baseUrl?: string | null;
+		layout?: 'shelf' | 'grid';
 		onclick?: () => void;
 		children?: Snippet;
 	}
 
-	let { title, subtitle = '', coverId = null, baseUrl = null, onclick, children }: Props = $props();
+	let {
+		title,
+		subtitle = '',
+		coverId = null,
+		baseUrl = null,
+		layout = 'shelf',
+		onclick,
+		children
+	}: Props = $props();
 </script>
 
 <button
 	type="button"
-	class="border-border bg-surface-raised hover:border-accent focus-visible:border-accent flex w-36 shrink-0 snap-start flex-col gap-2 rounded-card border p-2 text-left sm:w-40"
+	class={[
+		'border-border bg-surface-raised hover:border-accent focus-visible:border-accent flex flex-col gap-2 rounded-card border p-2 text-left',
+		layout === 'shelf' ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full'
+	]}
 	{onclick}
 >
 	<CoverArt {title} artist={subtitle} {coverId} {baseUrl} size="card" />

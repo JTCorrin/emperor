@@ -1,18 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import {
+	albumPageSchema,
+	albumSchema,
+	artistPageSchema,
+	artistSchema,
 	connectFormSchema,
 	historyItemSchema,
 	libraryStatusSchema,
 	pingResponseSchema,
 	playlistSchema,
+	searchResponseSchema,
 	trackPageSchema,
 	trackSchema
 } from '$lib/api/schemas';
 import {
+	albumFixture,
+	albumPageFixture,
+	artistFixture,
+	artistPageFixture,
 	historyItemFixture,
 	libraryStatusFixture,
 	pingFixture,
 	playlistFixture,
+	searchResponseFixture,
 	trackFixture,
 	trackPageFixture
 } from '$lib/test/fixtures';
@@ -44,6 +54,30 @@ describe('API schemas', () => {
 			played_unix: 1_710_000_000,
 			track: { id: 1 }
 		});
+	});
+
+	it('accepts artist, album, and search envelopes', () => {
+		const artist = artistFixture({ id: 3, name: 'ASM' });
+		const album = albumFixture({ id: 5, name: 'Jade', cover_id: null });
+		expect(artistSchema.parse(artist)).toEqual(artist);
+		expect(albumSchema.parse(album)).toEqual(album);
+		expect(artistPageSchema.parse(artistPageFixture([artist]))).toMatchObject({ total: 1 });
+		expect(albumPageSchema.parse(albumPageFixture([album]))).toMatchObject({ total: 1 });
+		expect(
+			searchResponseSchema.parse(
+				searchResponseFixture({
+					q: 'a',
+					tracks: trackPageFixture([trackFixture({ id: 9 })]),
+					artists: artistPageFixture([artist]),
+					albums: albumPageFixture([album])
+				})
+			)
+		).toMatchObject({ q: 'a', fuzzy: false });
+	});
+
+	it('rejects malformed artist and album payloads', () => {
+		expect(artistSchema.safeParse({ id: 1, name: 'X' }).success).toBe(false);
+		expect(albumSchema.safeParse({ id: 1, name: 'X', artist: 'Y' }).success).toBe(false);
 	});
 
 	it('validates connect form URLs', () => {
