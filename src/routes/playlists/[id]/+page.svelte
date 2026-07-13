@@ -1,0 +1,423 @@
+<script lang="ts">
+	import { onDestroy, untrack } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
+	import { defaults, superForm } from 'sveltekit-superforms';
+	import { zod4 } from 'sveltekit-superforms/adapters';
+	import {
+		createMediaServerClient,
+		MediaServerRequestError,
+		playlistNameBodySchema,
+		type Playlist,
+		type Track
+	} from '$lib/api';
+	import TrackRow from '$lib/components/media/TrackRow.svelte';
+	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
+	import { getConnection, getFavourites, getPlayer } from '$lib/state/context';
+
+	const connection = getConnection();
+	const player = getPlayer();
+	const favourites = getFavourites();
+	const playlistId = $derived(Number(page.params.id));
+
+	let playlist = $state.raw<Playlist | null>(null);
+	let tracks = $state.raw<Track[]>([]);
+	let status = $state<'idle' | 'loading' | 'ready' | 'error' | 'unavailable'>('idle');
+	let errorMessage = $state<string | null>(null);
+	let editing = $state(false);
+	let draftIds = $state.raw<number[]>([]);
+	let draftTracks = $state.raw<Track[]>([]);
+	let saving = $state(false);
+	let deleting = $state(false);
+	let confirmDelete = $state(false);
+	let mutationError = $state<string | null>(null);
+	let addQuery = $state('');
+	let addResults = $state.raw<Track[]>([]);
+	let addStatus = $state<'idle' | 'loading' | 'ready' | 'empty' | 'error'>('idle');
+	let loadAbort: AbortController | null = null;
+	let loadToken = 0;
+	let addTimer: ReturnType<typeof setTimeout> | null = null;
+
+	const renameForm = superForm(defaults({ name: '' }, zod4(playlistNameBodySchema)), {
+		SPA: true,
+		validators: zod4(playlistNameBodySchema),
+		resetForm: false,
+		onUpdate: async ({ form: validated, cancel }) => {
+			cancel();
+			if (!validated.valid || !connection.baseUrl || !playlist) return;
+			mutationError = null;
+			try {
+				const client = createMediaServerClient({ baseUrl: connection.baseUrl });
+				playlist = await client.updatePlaylist(playlist.id, validated.data.name);
+			} catch (cause) {
+				mutationError = cause instanceof Error ? cause.message : 'Could not rename playlist.';
+			}
+		}
+	});
+
+	const {
+		form: renameData,
+		errors: renameErrors,
+		enhance: renameEnhance,
+		submitting: renameSubmitting
+	} = renameForm;
+
+	onDestroy(() => {
+		loadAbort?.abort();
+		if (addTimer) clearTimeout(addTimer);
+	});
+
+	async function loadAll(id: number) {
+		const baseUrl = connection.baseUrl;
+		if (!baseUrl || !Number.isFinite(id) || id <= 0) {
+			status = 'error';
+			errorMessage = 'Invalid playlist.';
+			return;
+		}
+		if (connection.hasUserDb === false) {
+			status = 'unavailable';
+			return;
+		}
+
+		loadAbort?.abort();
+		const abort = new AbortController();
+		loadAbort = abort;
+		const token = ++loadToken;
+		status = 'loading';
+		errorMessage = null;
+		mutationError = null;
+
+		try {
+			const client = createMediaServerClient({ baseUrl });
+			const meta = await client.getPlaylist(id, abort.signal);
+			const pageTracks = await client.getPlaylistTracks(id, {
+				limit: 200,
+				signal: abort.signal
+			});
+			if (token !== loadToken) return;
+			playlist = meta;
+			tracks = pageTracks.items;
+			draftIds = pageTracks.items.map((t) => t.id);
+			draftTracks = pageTracks.items;
+			renameData.set({ name: meta.name });
+			status = 'ready';
+			editing = false;
+		} catch (cause) {
+			if (token !== loadToken) return;
+			if (cause instanceof MediaServerRequestError && cause.error.kind === 'aborted') return;
+			if (cause instanceof MediaServerRequestError && cause.error.kind === 'no_user_db') {
+				status = 'unavailable';
+				return;
+			}
+			status = 'error';
+			if (cause instanceof MediaServerRequestError && cause.error.status === 404) {
+				errorMessage = 'Playlist not found.';
+			} else {
+				errorMessage = cause instanceof Error ? cause.message : 'Could not load playlist.';
+			}
+		}
+	}
+
+	function startEdit() {
+		draftIds = tracks.map((t) => t.id);
+		draftTracks = [...tracks];
+		editing = true;
+		mutationError = null;
+		addQuery = '';
+		addResults = [];
+		addStatus = 'idle';
+	}
+
+	function cancelEdit() {
+		editing = false;
+		draftIds = tracks.map((t) => t.id);
+		draftTracks = [...tracks];
+		mutationError = null;
+		addQuery = '';
+		addResults = [];
+	}
+
+	function removeDraftTrack(trackId: number) {
+		draftIds = draftIds.filter((id) => id !== trackId);
+		draftTracks = draftTracks.filter((t) => t.id !== trackId);
+	}
+
+	function addDraftTrack(track: Track) {
+		if (draftIds.includes(track.id)) return;
+		draftIds = [...draftIds, track.id];
+		draftTracks = [...draftTracks, track];
+	}
+
+	async function saveTracks() {
+		if (!connection.baseUrl || !playlist || saving) return;
+		saving = true;
+		mutationError = null;
+		try {
+			const client = createMediaServerClient({ baseUrl: connection.baseUrl });
+			await client.setPlaylistTracks(playlist.id, draftIds);
+			await loadAll(playlist.id);
+		} catch (cause) {
+			mutationError = cause instanceof Error ? cause.message : 'Could not save playlist tracks.';
+			if (playlist) await loadAll(playlist.id);
+		} finally {
+			saving = false;
+		}
+	}
+
+	async function deletePlaylist() {
+		if (!connection.baseUrl || !playlist || deleting) return;
+		deleting = true;
+		mutationError = null;
+		try {
+			const client = createMediaServerClient({ baseUrl: connection.baseUrl });
+			await client.deletePlaylist(playlist.id);
+			await goto(resolve('/playlists'));
+		} catch (cause) {
+			mutationError = cause instanceof Error ? cause.message : 'Could not delete playlist.';
+			deleting = false;
+		}
+	}
+
+	function scheduleAddSearch(query: string) {
+		addQuery = query;
+		if (addTimer) clearTimeout(addTimer);
+		addTimer = setTimeout(() => {
+			void runAddSearch(query.trim());
+		}, 300);
+	}
+
+	async function runAddSearch(q: string) {
+		if (!connection.baseUrl || !q) {
+			addResults = [];
+			addStatus = 'idle';
+			return;
+		}
+		addStatus = 'loading';
+		try {
+			const client = createMediaServerClient({ baseUrl: connection.baseUrl });
+			const result = await client.search({ q, limit: 20 });
+			addResults = result.tracks.items;
+			addStatus = result.tracks.items.length === 0 ? 'empty' : 'ready';
+		} catch {
+			addStatus = 'error';
+			addResults = [];
+		}
+	}
+
+	$effect(() => {
+		const connected = connection.status === 'connected' && connection.baseUrl !== null;
+		const id = playlistId;
+		const hasUserDb = connection.hasUserDb;
+		if (!connected) return;
+		untrack(() => {
+			if (hasUserDb === false) {
+				status = 'unavailable';
+				return;
+			}
+			void loadAll(id);
+		});
+	});
+</script>
+
+<section class="flex flex-1 flex-col gap-6 pb-4">
+	<a
+		href={resolve('/playlists')}
+		class="text-text-muted hover:text-text min-h-touch inline-flex w-fit items-center text-base font-medium"
+	>
+		Back to playlists
+	</a>
+
+	{#if connection.status !== 'connected'}
+		<div class="border-border bg-surface-raised rounded-card border p-6">
+			<p class="text-lg">Connect to a media server to open playlists.</p>
+			<a
+				href={resolve('/connect')}
+				class="bg-accent text-text hover:bg-accent-strong mt-4 inline-flex min-h-touch items-center rounded-card px-5 text-base font-semibold"
+			>
+				Connect to a server
+			</a>
+		</div>
+	{:else if status === 'unavailable'}
+		<StatusPanel title="Unavailable" message="Playlists need a media-server user database." />
+	{:else if status === 'loading' || status === 'idle'}
+		<p class="text-text-muted text-lg" aria-busy="true">Loading playlist…</p>
+	{:else if status === 'error'}
+		<StatusPanel
+			title="Error"
+			message={errorMessage ?? 'Could not load playlist.'}
+			tone="danger"
+			onretry={() => loadAll(playlistId)}
+		/>
+	{:else if playlist}
+		<div class="flex flex-col gap-4">
+			{#if editing}
+				<h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">{playlist.name}</h1>
+			{:else}
+				<form method="POST" use:renameEnhance class="flex flex-wrap items-end gap-3">
+					<div class="flex min-w-0 flex-1 flex-col gap-2">
+						<label class="text-base font-medium" for="rename-playlist">Name</label>
+						<input
+							id="rename-playlist"
+							name="name"
+							type="text"
+							bind:value={$renameData.name}
+							class="border-border bg-surface-muted focus:border-accent min-h-touch w-full max-w-xl rounded-card border px-4 text-lg font-semibold"
+						/>
+						{#if $renameErrors.name?.[0]}
+							<p class="text-danger text-base" role="alert">{$renameErrors.name[0]}</p>
+						{/if}
+					</div>
+					<button
+						type="submit"
+						class="border-border bg-surface-muted hover:border-accent min-h-touch rounded-card border px-5 text-base font-semibold disabled:opacity-60"
+						disabled={$renameSubmitting}
+					>
+						{$renameSubmitting ? 'Saving…' : 'Rename'}
+					</button>
+				</form>
+			{/if}
+
+			<p class="text-text-muted text-lg">{playlist.track_count} tracks</p>
+
+			<div class="flex flex-wrap gap-3">
+				{#if tracks.length > 0 && !editing}
+					<button
+						type="button"
+						class="bg-accent text-text hover:bg-accent-strong min-h-touch rounded-card px-5 text-base font-semibold"
+						onclick={() => player.playTracks(tracks, 0)}
+					>
+						Play all
+					</button>
+				{/if}
+				{#if !editing}
+					<button
+						type="button"
+						class="border-border bg-surface-muted hover:border-accent min-h-touch rounded-card border px-5 text-base font-semibold"
+						onclick={startEdit}
+					>
+						Edit tracks
+					</button>
+					{#if !confirmDelete}
+						<button
+							type="button"
+							class="border-border text-danger hover:border-danger min-h-touch rounded-card border px-5 text-base font-semibold"
+							onclick={() => (confirmDelete = true)}
+						>
+							Delete
+						</button>
+					{:else}
+						<button
+							type="button"
+							class="bg-danger text-text min-h-touch rounded-card px-5 text-base font-semibold disabled:opacity-60"
+							disabled={deleting}
+							onclick={() => deletePlaylist()}
+						>
+							{deleting ? 'Deleting…' : 'Confirm delete'}
+						</button>
+						<button
+							type="button"
+							class="border-border bg-surface-muted min-h-touch rounded-card border px-5 text-base font-semibold"
+							disabled={deleting}
+							onclick={() => (confirmDelete = false)}
+						>
+							Cancel
+						</button>
+					{/if}
+				{:else}
+					<button
+						type="button"
+						class="bg-accent text-text hover:bg-accent-strong min-h-touch rounded-card px-5 text-base font-semibold disabled:opacity-60"
+						disabled={saving}
+						onclick={() => saveTracks()}
+					>
+						{saving ? 'Saving…' : 'Save'}
+					</button>
+					<button
+						type="button"
+						class="border-border bg-surface-muted min-h-touch rounded-card border px-5 text-base font-semibold disabled:opacity-60"
+						disabled={saving}
+						onclick={cancelEdit}
+					>
+						Cancel
+					</button>
+				{/if}
+			</div>
+
+			{#if mutationError}
+				<p class="text-danger text-base" role="alert">{mutationError}</p>
+			{/if}
+		</div>
+
+		{#if editing}
+			<div class="border-border bg-surface-raised flex flex-col gap-3 rounded-card border p-4">
+				<label class="text-base font-medium" for="add-songs">Add songs</label>
+				<input
+					id="add-songs"
+					type="search"
+					value={addQuery}
+					oninput={(e) => scheduleAddSearch(e.currentTarget.value)}
+					placeholder="Search tracks to add"
+					class="border-border bg-surface-muted focus:border-accent min-h-touch w-full max-w-xl rounded-card border px-4 text-base"
+				/>
+				{#if addStatus === 'loading'}
+					<p class="text-text-muted" aria-busy="true">Searching…</p>
+				{:else if addStatus === 'empty'}
+					<p class="text-text-muted">No matching tracks.</p>
+				{:else if addStatus === 'error'}
+					<p class="text-danger" role="alert">Search failed.</p>
+				{:else if addStatus === 'ready'}
+					<ul class="flex flex-col gap-2">
+						{#each addResults as track (track.id)}
+							<li>
+								<button
+									type="button"
+									class="border-border bg-surface-muted hover:border-accent min-h-touch w-full rounded-card border px-4 py-3 text-left disabled:opacity-50"
+									disabled={draftIds.includes(track.id) || saving}
+									onclick={() => addDraftTrack(track)}
+								>
+									<span class="block font-semibold">{track.title}</span>
+									<span class="text-text-muted text-sm">{track.artist}</span>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		{/if}
+
+		{#if (editing ? draftTracks : tracks).length === 0}
+			<StatusPanel message={editing ? 'No tracks in this draft.' : 'This playlist is empty.'} />
+		{:else}
+			<ul class="flex flex-col gap-2">
+				{#each editing ? draftTracks : tracks as track, index (track.id)}
+					<li class="flex items-center gap-2">
+						<div class="min-w-0 flex-1">
+							<TrackRow
+								title={track.title}
+								subtitle={`${track.artist} · ${track.album}`}
+								favourite={connection.hasUserDb === true ? favourites.isFavourite(track.id) : null}
+								favouritePending={favourites.isPending(track.id)}
+								onFavouriteClick={connection.hasUserDb === true
+									? () => favourites.toggle(track)
+									: undefined}
+								onclick={() => player.playTracks(editing ? draftTracks : tracks, index)}
+							/>
+						</div>
+						{#if editing}
+							<button
+								type="button"
+								class="border-border bg-surface-muted hover:border-accent min-h-touch min-w-touch shrink-0 rounded-card border text-sm font-semibold disabled:opacity-60"
+								disabled={saving}
+								aria-label={`Remove ${track.title}`}
+								onclick={() => removeDraftTrack(track.id)}
+							>
+								Remove
+							</button>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	{/if}
+</section>

@@ -12,6 +12,8 @@ import {
 	albumPageFixture,
 	artistFixture,
 	artistPageFixture,
+	historyItemFixture,
+	historyPageFixture,
 	searchResponseFixture,
 	trackFixture,
 	trackPageFixture
@@ -134,6 +136,94 @@ describe('createMediaServerClient', () => {
 
 		await expect(client.getFavourites()).rejects.toMatchObject({
 			error: { kind: 'no_user_db' }
+		});
+	});
+
+	it('creates, updates, deletes playlists and replaces tracks', async () => {
+		const created = playlistFixture({ id: 5, name: 'Road' });
+		const renamed = playlistFixture({ id: 5, name: 'Highway' });
+		const tracks = trackPageFixture([trackFixture({ id: 11 })]);
+		const history = historyPageFixture([historyItemFixture()]);
+		let createBody: string | null = null;
+		let putBody: string | null = null;
+
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: async (input, init) => {
+				const url = String(input);
+				const method = init?.method ?? 'GET';
+				if (url === `${baseUrl}/api/playlists` && method === 'POST') {
+					createBody = String(init?.body);
+					return jsonResponse(created, { status: 201 });
+				}
+				if (url === `${baseUrl}/api/playlists/5` && method === 'GET') {
+					return jsonResponse(created);
+				}
+				if (url === `${baseUrl}/api/playlists/5` && method === 'PATCH') {
+					return jsonResponse(renamed);
+				}
+				if (url === `${baseUrl}/api/playlists/5` && method === 'DELETE') {
+					return jsonResponse({ ok: true });
+				}
+				if (url.split('?')[0] === `${baseUrl}/api/playlists/5/tracks` && method === 'GET') {
+					return jsonResponse(tracks);
+				}
+				if (url === `${baseUrl}/api/playlists/5/tracks` && method === 'PUT') {
+					putBody = String(init?.body);
+					return jsonResponse({}, { status: 200 });
+				}
+				if (url === `${baseUrl}/api/favourites/11` && method === 'PUT') {
+					return jsonResponse({}, { status: 200 });
+				}
+				if (url === `${baseUrl}/api/favourites/11` && method === 'DELETE') {
+					return jsonResponse({}, { status: 200 });
+				}
+				if (url.split('?')[0] === `${baseUrl}/api/history` && method === 'GET') {
+					return jsonResponse(history);
+				}
+				return errorResponse(404, 'not_found');
+			}
+		});
+
+		await expect(client.createPlaylist('Road')).resolves.toEqual(created);
+		expect(createBody).toBe(JSON.stringify({ name: 'Road' }));
+		await expect(client.getPlaylist(5)).resolves.toEqual(created);
+		await expect(client.updatePlaylist(5, 'Highway')).resolves.toEqual(renamed);
+		await expect(client.getPlaylistTracks(5)).resolves.toEqual(tracks);
+		await expect(client.setPlaylistTracks(5, [11, 12])).resolves.toBeUndefined();
+		expect(putBody).toBe(JSON.stringify({ track_ids: [11, 12] }));
+		await expect(client.deletePlaylist(5)).resolves.toBeUndefined();
+		await expect(client.addFavourite(11)).resolves.toBeUndefined();
+		await expect(client.removeFavourite(11)).resolves.toBeUndefined();
+		await expect(client.getHistory({ limit: 20 })).resolves.toEqual(history);
+	});
+
+	it('maps no_user_db on playlist create', async () => {
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/playlists`, response: errorResponse(400, 'no_user_db') }
+			])
+		});
+
+		await expect(client.createPlaylist('X')).rejects.toMatchObject({
+			error: { kind: 'no_user_db' }
+		});
+	});
+
+	it('maps 409 on playlist track replace conflict', async () => {
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: createFetchStub([
+				{
+					url: `${baseUrl}/api/playlists/1/tracks`,
+					response: errorResponse(409, 'conflict')
+				}
+			])
+		});
+
+		await expect(client.setPlaylistTracks(1, [1])).rejects.toMatchObject({
+			error: { kind: 'http', status: 409 }
 		});
 	});
 

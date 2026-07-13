@@ -3,9 +3,11 @@ import { createMediaServerClient } from '$lib/api/client';
 import { CONNECTION_STORAGE_KEY, ConnectionController } from '$lib/state/connection.svelte';
 import {
 	createFetchStub,
+	errorResponse,
 	jsonResponse,
 	libraryStatusFixture,
-	pingFixture
+	pingFixture,
+	playlistPageFixture
 } from '$lib/test/fixtures';
 
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -33,7 +35,8 @@ describe('ConnectionController', () => {
 				{
 					url: `${baseUrl}/api/library/status`,
 					response: jsonResponse(libraryStatusFixture({ track_count: 42 }))
-				}
+				},
+				{ url: `${baseUrl}/api/playlists`, response: jsonResponse(playlistPageFixture([])) }
 			]),
 			createClient: createMediaServerClient
 		});
@@ -42,7 +45,25 @@ describe('ConnectionController', () => {
 		expect(controller.status).toBe('connected');
 		expect(controller.baseUrl).toBe(baseUrl);
 		expect(controller.libraryStatus?.track_count).toBe(42);
+		expect(controller.hasUserDb).toBe(true);
 		expect(storage.dump()[CONNECTION_STORAGE_KEY]).toBe(baseUrl);
+	});
+
+	it('sets hasUserDb false when playlists probe returns no_user_db', async () => {
+		const baseUrl = 'http://192.168.5.111:8080';
+		const controller = new ConnectionController({
+			storage: memoryStorage(),
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/ping`, response: jsonResponse(pingFixture()) },
+				{ url: `${baseUrl}/api/library/status`, response: jsonResponse(libraryStatusFixture()) },
+				{ url: `${baseUrl}/api/playlists`, response: errorResponse(400, 'no_user_db') }
+			]),
+			createClient: createMediaServerClient
+		});
+
+		await expect(controller.connect(baseUrl)).resolves.toBe(true);
+		expect(controller.status).toBe('connected');
+		expect(controller.hasUserDb).toBe(false);
 	});
 
 	it('records a recoverable error when the probe fails', async () => {
@@ -63,7 +84,8 @@ describe('ConnectionController', () => {
 		const storage = memoryStorage({ [CONNECTION_STORAGE_KEY]: baseUrl });
 		const fetchStub = createFetchStub([
 			{ url: `${baseUrl}/api/ping`, response: jsonResponse(pingFixture()) },
-			{ url: `${baseUrl}/api/library/status`, response: jsonResponse(libraryStatusFixture()) }
+			{ url: `${baseUrl}/api/library/status`, response: jsonResponse(libraryStatusFixture()) },
+			{ url: `${baseUrl}/api/playlists`, response: jsonResponse(playlistPageFixture([])) }
 		]);
 		const controller = new ConnectionController({
 			storage,

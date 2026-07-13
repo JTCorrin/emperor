@@ -42,6 +42,8 @@ export class ConnectionController {
 	status = $state<ConnectionStatus>('idle');
 	libraryStatus = $state<LibraryStatus | null>(null);
 	error = $state<MediaServerError | null>(null);
+	/** true/false after probe; null when unknown or not connected */
+	hasUserDb = $state<boolean | null>(null);
 
 	#storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
 	#fetch: FetchLike;
@@ -68,17 +70,38 @@ export class ConnectionController {
 		if (!saved) {
 			this.baseUrl = null;
 			this.status = 'idle';
+			this.hasUserDb = null;
 			return null;
 		}
 
 		try {
 			this.baseUrl = normalizeBaseUrl(saved);
 			this.status = 'disconnected';
+			this.hasUserDb = null;
 			return this.baseUrl;
 		} catch {
 			this.#storage?.removeItem(CONNECTION_STORAGE_KEY);
 			this.baseUrl = null;
 			this.status = 'idle';
+			this.hasUserDb = null;
+			return null;
+		}
+	}
+
+	async #probeUserDb(
+		client: ReturnType<typeof createMediaServerClient>,
+		signal: AbortSignal
+	): Promise<boolean | null> {
+		try {
+			await client.getPlaylists({ limit: 1, signal });
+			return true;
+		} catch (cause) {
+			if (cause instanceof MediaServerRequestError && cause.error.kind === 'no_user_db') {
+				return false;
+			}
+			if (cause instanceof MediaServerRequestError && cause.error.kind === 'aborted') {
+				return null;
+			}
 			return null;
 		}
 	}
@@ -91,6 +114,7 @@ export class ConnectionController {
 		this.status = 'connecting';
 		this.error = null;
 		this.libraryStatus = null;
+		this.hasUserDb = null;
 
 		try {
 			const normalized = normalizeBaseUrl(rawBaseUrl);
@@ -106,8 +130,15 @@ export class ConnectionController {
 				return false;
 			}
 
+			const hasUserDb = await this.#probeUserDb(client, probe.signal);
+
+			if (probe.signal.aborted) {
+				return false;
+			}
+
 			this.baseUrl = client.baseUrl;
 			this.libraryStatus = libraryStatus;
+			this.hasUserDb = hasUserDb;
 			this.status = 'connected';
 			this.error = null;
 			this.#storage?.setItem(CONNECTION_STORAGE_KEY, client.baseUrl);
@@ -125,6 +156,7 @@ export class ConnectionController {
 			this.status = 'error';
 			this.error = toMediaServerError(cause);
 			this.libraryStatus = null;
+			this.hasUserDb = null;
 			return false;
 		} finally {
 			if (this.#probeController === probe) {
@@ -151,6 +183,7 @@ export class ConnectionController {
 		this.baseUrl = null;
 		this.libraryStatus = null;
 		this.error = null;
+		this.hasUserDb = null;
 		this.status = 'idle';
 	}
 }

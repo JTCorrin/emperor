@@ -11,17 +11,21 @@ import {
 	artistPageSchema,
 	artistSchema,
 	errorBodySchema,
+	historyPageSchema,
 	libraryStatusSchema,
 	pingResponseSchema,
 	playlistPageSchema,
+	playlistSchema,
 	searchResponseSchema,
 	trackPageSchema,
 	type Album,
 	type AlbumPage,
 	type Artist,
 	type ArtistPage,
+	type HistoryPage,
 	type LibraryStatus,
 	type PingResponse,
+	type Playlist,
 	type PlaylistPage,
 	type SearchResponse,
 	type TrackPage
@@ -61,7 +65,16 @@ export type MediaServerClient = {
 	getDiscoverRecent: (query?: PaginationQuery) => Promise<TrackPage>;
 	getRecentlyPlayed: (query?: PaginationQuery) => Promise<TrackPage>;
 	getPlaylists: (query?: PaginationQuery) => Promise<PlaylistPage>;
+	getPlaylist: (id: number, signal?: AbortSignal) => Promise<Playlist>;
+	createPlaylist: (name: string, signal?: AbortSignal) => Promise<Playlist>;
+	updatePlaylist: (id: number, name: string, signal?: AbortSignal) => Promise<Playlist>;
+	deletePlaylist: (id: number, signal?: AbortSignal) => Promise<void>;
+	getPlaylistTracks: (id: number, query?: PaginationQuery) => Promise<TrackPage>;
+	setPlaylistTracks: (id: number, trackIds: number[], signal?: AbortSignal) => Promise<void>;
 	getFavourites: (query?: PaginationQuery) => Promise<TrackPage>;
+	addFavourite: (trackId: number, signal?: AbortSignal) => Promise<void>;
+	removeFavourite: (trackId: number, signal?: AbortSignal) => Promise<void>;
+	getHistory: (query?: PaginationQuery) => Promise<HistoryPage>;
 	recordHistory: (trackId: number, signal?: AbortSignal) => Promise<void>;
 };
 
@@ -94,12 +107,16 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 		schema: { parse: (data: unknown) => T } | null,
 		init: RequestInit = {}
 	): Promise<T | void> {
+		const headers = {
+			Accept: 'application/json',
+			...(init.headers ?? {})
+		};
+
 		let response: Response;
 		try {
 			response = await fetchImpl(apiUrl(baseUrl, path), {
-				method: 'GET',
-				headers: { Accept: 'application/json', ...(init.headers ?? {}) },
-				...init
+				...init,
+				headers
 			});
 		} catch (cause) {
 			if (init.signal?.aborted || (cause instanceof DOMException && cause.name === 'AbortError')) {
@@ -137,6 +154,17 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 		} catch (cause) {
 			throw new MediaServerRequestError(schemaError(cause));
 		}
+	}
+
+	function jsonMutation(method: string, body?: unknown): RequestInit {
+		return {
+			method,
+			headers: {
+				Accept: 'application/json',
+				'Content-Type': 'application/json'
+			},
+			body: body === undefined ? undefined : JSON.stringify(body)
+		};
 	}
 
 	function getTrackPage(path: string, query: PaginationQuery = {}): Promise<TrackPage> {
@@ -211,15 +239,56 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 				playlistPageSchema,
 				{ signal: query.signal }
 			) as Promise<PlaylistPage>,
+		getPlaylist: (id, signal) =>
+			requestJson(`/api/playlists/${id}`, playlistSchema, { signal }) as Promise<Playlist>,
+		createPlaylist: (name, signal) =>
+			requestJson(`/api/playlists`, playlistSchema, {
+				...jsonMutation('POST', { name }),
+				signal
+			}) as Promise<Playlist>,
+		updatePlaylist: (id, name, signal) =>
+			requestJson(`/api/playlists/${id}`, playlistSchema, {
+				...jsonMutation('PATCH', { name }),
+				signal
+			}) as Promise<Playlist>,
+		deletePlaylist: async (id, signal) => {
+			await requestJson(`/api/playlists/${id}`, null, {
+				...jsonMutation('DELETE'),
+				signal
+			});
+		},
+		getPlaylistTracks: (id, query = {}) => getTrackPage(`/api/playlists/${id}/tracks`, query),
+		setPlaylistTracks: async (id, trackIds, signal) => {
+			await requestJson(`/api/playlists/${id}/tracks`, null, {
+				...jsonMutation('PUT', { track_ids: trackIds }),
+				signal
+			});
+		},
 		getFavourites: (query = {}) => getTrackPage('/api/favourites', query),
+		addFavourite: async (trackId, signal) => {
+			await requestJson(`/api/favourites/${trackId}`, null, {
+				...jsonMutation('PUT'),
+				signal
+			});
+		},
+		removeFavourite: async (trackId, signal) => {
+			await requestJson(`/api/favourites/${trackId}`, null, {
+				...jsonMutation('DELETE'),
+				signal
+			});
+		},
+		getHistory: (query = {}) =>
+			requestJson(
+				withQuery('/api/history', {
+					limit: query.limit,
+					offset: query.offset
+				}),
+				historyPageSchema,
+				{ signal: query.signal }
+			) as Promise<HistoryPage>,
 		recordHistory: async (trackId, signal) => {
 			await requestJson('/api/history', null, {
-				method: 'POST',
-				headers: {
-					Accept: 'application/json',
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ track_id: trackId }),
+				...jsonMutation('POST', { track_id: trackId }),
 				signal
 			});
 		}

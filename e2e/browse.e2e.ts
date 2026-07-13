@@ -73,6 +73,9 @@ async function stubBrowseApis(page: Page) {
 			if (path === '/api/library/status') {
 				return fulfillJson(route, 200, libraryStatusFixture);
 			}
+			if (path === '/api/playlists') {
+				return fulfillJson(route, 200, { items: [], total: 0, limit: 1, offset: 0 });
+			}
 			if (path === '/api/albums') {
 				return fulfillJson(route, 200, albumPage);
 			}

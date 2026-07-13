@@ -89,6 +89,8 @@
 				errorMessage={home.shelves.recentlyPlayed.errorMessage ?? undefined}
 				unavailableMessage="Recently played needs a media-server user database."
 				emptyMessage="Nothing played yet."
+				headerHref="/history"
+				headerLinkLabel="History"
 				onretry={() => home.refresh()}
 			>
 				{#each home.shelves.recentlyPlayed.items as track, index (`${track.id}-${index}`)}
@@ -114,7 +116,7 @@
 						title={playlist.name}
 						subtitle={`${playlist.track_count} tracks`}
 						baseUrl={connection.baseUrl}
-						onclick={() => goto(resolve('/playlists'))}
+						onclick={() => goto(resolve(`/playlists/${playlist.id}`))}
 					/>
 				{/each}
 			</MediaShelf>

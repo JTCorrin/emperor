@@ -36,6 +36,14 @@ export const connectFormSchema = z.object({
 		}, 'Enter a valid http or https URL')
 });
 
+export const playlistNameBodySchema = z.object({
+	name: z.string().trim().min(1, 'Name is required').max(200)
+});
+
+export const playlistTracksBodySchema = z.object({
+	track_ids: z.array(z.number().int().positive())
+});
+
 export const trackSchema = z.object({
 	id: z.number().int().positive(),
 	kind: z.literal('audio'),
@@ -113,6 +121,8 @@ export type PingResponse = z.infer<typeof pingResponseSchema>;
 export type LibraryStatus = z.infer<typeof libraryStatusSchema>;
 export type ErrorBody = z.infer<typeof errorBodySchema>;
 export type ConnectForm = z.infer<typeof connectFormSchema>;
+export type PlaylistNameBody = z.infer<typeof playlistNameBodySchema>;
+export type PlaylistTracksBody = z.infer<typeof playlistTracksBodySchema>;
 export type Track = z.infer<typeof trackSchema>;
 export type TrackPage = z.infer<typeof trackPageSchema>;
 export type Playlist = z.infer<typeof playlistSchema>;

@@ -1,18 +1,23 @@
 <script lang="ts">
 	import CoverArt from '$lib/components/media/CoverArt.svelte';
+	import type { FavouritesController } from '$lib/features/favourites/favourites.svelte';
 	import type { PlayerController } from '$lib/state/player.svelte';
 
 	interface Props {
 		player: PlayerController;
 		baseUrl?: string | null;
+		favourites?: FavouritesController | null;
+		hasUserDb?: boolean | null;
 	}
 
-	let { player, baseUrl = null }: Props = $props();
+	let { player, baseUrl = null, favourites = null, hasUserDb = null }: Props = $props();
 
 	const track = $derived(player.currentTrack);
 	const progressMax = $derived(player.duration > 0 ? player.duration : 1);
 	const canPrevious = $derived(player.index > 0);
 	const canNext = $derived(player.index >= 0 && player.index < player.queue.length - 1);
+	const showFavourite = $derived(hasUserDb === true && favourites != null && track != null);
+	const isFavourite = $derived(track && favourites ? favourites.isFavourite(track.id) : false);
 
 	function formatTime(seconds: number): string {
 		if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -42,6 +47,20 @@
 			</button>
 
 			<div class="flex items-center gap-2">
+				{#if showFavourite && favourites}
+					<button
+						type="button"
+						class="border-border bg-surface-muted min-h-touch-lg min-w-touch-lg rounded-card border text-sm font-semibold disabled:opacity-40"
+						aria-pressed={isFavourite}
+						aria-label={isFavourite
+							? `Remove ${track.title} from favourites`
+							: `Add ${track.title} to favourites`}
+						disabled={favourites.isPending(track.id)}
+						onclick={() => favourites.toggle(track)}
+					>
+						{isFavourite ? 'Unfav' : 'Fav'}
+					</button>
+				{/if}
 				<button
 					type="button"
 					class="border-border bg-surface-muted min-h-touch-lg min-w-touch-lg rounded-card border text-base font-medium disabled:opacity-40"

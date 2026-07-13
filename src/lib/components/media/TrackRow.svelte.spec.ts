@@ -6,17 +6,16 @@ import MediaGrid from './MediaGrid.svelte';
 import TrackRow from './TrackRow.svelte';
 
 describe('TrackRow', () => {
-	it('activates the click handler', async () => {
-		const onclick = vi.fn();
+	it('activates the favourite handler', async () => {
+		const onFavouriteClick = vi.fn();
 		render(TrackRow, {
 			title: 'Song Title',
-			subtitle: 'Artist · Album',
-			trackNumber: 3,
-			onclick
+			favourite: false,
+			onFavouriteClick
 		});
 
-		await page.getByRole('button', { name: /Song Title/ }).click();
-		expect(onclick).toHaveBeenCalled();
+		await page.getByRole('button', { name: /Add Song Title to favourites/ }).click();
+		expect(onFavouriteClick).toHaveBeenCalled();
 	});
 });
 

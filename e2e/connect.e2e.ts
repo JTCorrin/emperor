@@ -32,6 +32,13 @@ test.describe('connect journey', () => {
 				body: JSON.stringify(libraryStatusFixture)
 			});
 		});
+		await page.route(`${baseUrl}/api/playlists**`, async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({ items: [], total: 0, limit: 1, offset: 0 })
+			});
+		});
 
 		await page.goto('/connect');
 		await page.getByLabel('Media server URL').fill(baseUrl);

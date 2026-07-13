@@ -30,6 +30,8 @@ export {
 	pingResponseSchema,
 	playlistPageSchema,
 	playlistSchema,
+	playlistNameBodySchema,
+	playlistTracksBodySchema,
 	searchResponseSchema,
 	trackPageSchema,
 	trackSchema,
@@ -45,7 +47,9 @@ export {
 	type PageEnvelope,
 	type PingResponse,
 	type Playlist,
+	type PlaylistNameBody,
 	type PlaylistPage,
+	type PlaylistTracksBody,
 	type SearchResponse,
 	type Track,
 	type TrackPage

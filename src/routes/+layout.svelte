@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
@@ -8,8 +8,9 @@
 	import ConnectionStatusBar from '$lib/components/ui/ConnectionStatusBar.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import TabBar from '$lib/components/ui/TabBar.svelte';
+	import { FavouritesController } from '$lib/features/favourites/favourites.svelte';
 	import { ConnectionController } from '$lib/state/connection.svelte';
-	import { setConnection, setPlayer } from '$lib/state/context';
+	import { setConnection, setFavourites, setPlayer } from '$lib/state/context';
 	import { PlayerController } from '$lib/state/player.svelte';
 
 	let { children } = $props();
@@ -18,8 +19,13 @@
 	const player = new PlayerController({
 		getBaseUrl: () => connection.baseUrl
 	});
+	const favourites = new FavouritesController({
+		getBaseUrl: () => connection.baseUrl,
+		getHasUserDb: () => connection.hasUserDb
+	});
 	setConnection(connection);
 	setPlayer(player);
+	setFavourites(favourites);
 
 	let audioEl: HTMLAudioElement | undefined = $state();
 
@@ -30,10 +36,25 @@
 		}
 	});
 
+	onDestroy(() => favourites.dispose());
+
 	$effect(() => {
 		if (audioEl) {
 			player.attachAudio(audioEl);
 		}
+	});
+
+	$effect(() => {
+		const connected = connection.status === 'connected' && connection.baseUrl !== null;
+		const hasUserDb = connection.hasUserDb;
+		if (!connected) return;
+		untrack(() => {
+			if (hasUserDb === false) {
+				void favourites.load();
+				return;
+			}
+			void favourites.load();
+		});
 	});
 </script>
 
@@ -64,7 +85,12 @@
 	</main>
 
 	<audio bind:this={audioEl} preload="metadata" class="hidden"></audio>
-	<CompactPlayer {player} baseUrl={connection.baseUrl} />
+	<CompactPlayer
+		{player}
+		baseUrl={connection.baseUrl}
+		{favourites}
+		hasUserDb={connection.hasUserDb}
+	/>
 	<NowPlayingOverlay {player} baseUrl={connection.baseUrl} />
 	<div class="sticky bottom-0 z-10">
 		<TabBar />

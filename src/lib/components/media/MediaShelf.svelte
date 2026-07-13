@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { resolve } from '$app/paths';
 	import ShelfSkeleton from '$lib/components/media/ShelfSkeleton.svelte';
 	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
 
@@ -11,6 +12,8 @@
 		emptyMessage?: string;
 		errorMessage?: string;
 		unavailableMessage?: string;
+		headerHref?: '/history';
+		headerLinkLabel?: string;
 		onretry?: () => void;
 		children?: Snippet;
 	}
@@ -21,6 +24,8 @@
 		emptyMessage = 'Nothing here yet.',
 		errorMessage = 'Could not load this shelf.',
 		unavailableMessage = 'Unavailable on this server.',
+		headerHref,
+		headerLinkLabel,
 		onretry,
 		children
 	}: Props = $props();
@@ -63,12 +68,22 @@
 
 <section class="flex flex-col gap-3" aria-labelledby="{title.replaceAll(' ', '-')}-shelf-heading">
 	<div class="flex items-center justify-between gap-3">
-		<h2
-			id="{title.replaceAll(' ', '-')}-shelf-heading"
-			class="text-2xl font-semibold tracking-tight"
-		>
-			{title}
-		</h2>
+		<div class="flex min-w-0 flex-wrap items-baseline gap-3">
+			<h2
+				id="{title.replaceAll(' ', '-')}-shelf-heading"
+				class="text-2xl font-semibold tracking-tight"
+			>
+				{title}
+			</h2>
+			{#if headerHref && headerLinkLabel}
+				<a
+					href={resolve(headerHref)}
+					class="text-text-muted hover:text-accent min-h-touch inline-flex items-center text-base font-medium"
+				>
+					{headerLinkLabel}
+				</a>
+			{/if}
+		</div>
 		{#if status === 'ready'}
 			<div class="flex gap-2">
 				<button
