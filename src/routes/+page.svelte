@@ -93,7 +93,7 @@
 				headerLinkLabel="History"
 				onretry={() => home.refresh()}
 			>
-				{#each home.shelves.recentlyPlayed.items as track, index (`${track.id}-${index}`)}
+				{#each home.shelves.recentlyPlayed.items as track, index (track.id)}
 					<MediaCard
 						title={track.title}
 						subtitle={track.artist}

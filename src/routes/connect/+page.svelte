@@ -26,6 +26,9 @@
 			Enter the base URL of a trusted-LAN media-server. Development default:
 			<code class="text-text">{DEFAULT_DEV_BASE_URL}</code>
 		</p>
+		<p class="text-text-muted max-w-2xl text-base">
+			If Emperor uses HTTPS, your browser may block an HTTP media server as mixed content.
+		</p>
 	</div>
 
 	{#key initialBaseUrl}

@@ -7,13 +7,14 @@ import {
 	artistFixture,
 	artistPageFixture,
 	createFetchStub,
+	errorResponse,
 	jsonResponse,
 	searchResponseFixture,
 	trackFixture,
 	trackPageFixture
 } from '$lib/test/fixtures';
 
-const baseUrl = 'http://192.168.5.111:8080';
+const baseUrl = 'http://127.0.0.1:8080';
 
 describe('SearchResultsController', () => {
 	it('loads tracks, artists, and albums for a query', async () => {
@@ -89,5 +90,33 @@ describe('SearchResultsController', () => {
 		expect(fetched).toBe(false);
 		expect(controller.state.query).toBe('');
 		expect(controller.state.tracks.status).toBe('idle');
+	});
+
+	it('shows a focused error when searching without a connection', async () => {
+		const controller = new SearchResultsController({
+			getBaseUrl: () => null,
+			fetch: createFetchStub([])
+		});
+
+		await controller.search('jade');
+
+		expect(controller.state.tracks.status).toBe('error');
+		expect(controller.state.tracks.errorMessage).toBe('Not connected to a media server.');
+	});
+
+	it('maps request failures across result sections', async () => {
+		const controller = new SearchResultsController({
+			getBaseUrl: () => baseUrl,
+			createClient: createMediaServerClient,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/search`, response: errorResponse(500, 'search_failed') }
+			])
+		});
+
+		await controller.search('jade');
+
+		expect(controller.state.tracks.status).toBe('error');
+		expect(controller.state.artists.status).toBe('error');
+		expect(controller.state.albums.status).toBe('error');
 	});
 });

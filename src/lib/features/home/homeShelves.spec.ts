@@ -10,7 +10,7 @@ import {
 	trackPageFixture
 } from '$lib/test/fixtures';
 
-const baseUrl = 'http://192.168.5.111:8080';
+const baseUrl = 'http://127.0.0.1:8080';
 
 describe('HomeShelvesController', () => {
 	it('loads shelves independently and keeps catalog shelves when user-db is unavailable', async () => {
@@ -40,6 +40,47 @@ describe('HomeShelvesController', () => {
 		expect(controller.shelves.recentlyPlayed.status).toBe('unavailable');
 		expect(controller.shelves.playlists.status).toBe('unavailable');
 		expect(controller.shelves.favourites.status).toBe('unavailable');
+	});
+
+	it('keeps healthy shelves ready when one catalog shelf fails', async () => {
+		const tracks = trackPageFixture([trackFixture({ id: 1 })]);
+		const controller = new HomeShelvesController({
+			getBaseUrl: () => baseUrl,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/discover/random`, response: errorResponse(500, 'failed') },
+				{ url: `${baseUrl}/api/discover/recent`, response: jsonResponse(tracks) },
+				{ url: `${baseUrl}/api/discover/recently-played`, response: jsonResponse(tracks) },
+				{ url: `${baseUrl}/api/playlists`, response: jsonResponse(playlistPageFixture([])) },
+				{ url: `${baseUrl}/api/favourites`, response: jsonResponse(tracks) }
+			]),
+			createClient: createMediaServerClient
+		});
+
+		await controller.load();
+
+		expect(controller.shelves.discover.status).toBe('error');
+		expect(controller.shelves.recent.status).toBe('ready');
+		expect(controller.shelves.favourites.status).toBe('ready');
+	});
+
+	it('deduplicates recently played tracks while preserving recency order', async () => {
+		const first = trackFixture({ id: 1, title: 'First' });
+		const tracks = trackPageFixture([first, trackFixture({ id: 1, title: 'Duplicate' })]);
+		const controller = new HomeShelvesController({
+			getBaseUrl: () => baseUrl,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/discover/random`, response: jsonResponse(trackPageFixture([])) },
+				{ url: `${baseUrl}/api/discover/recent`, response: jsonResponse(trackPageFixture([])) },
+				{ url: `${baseUrl}/api/discover/recently-played`, response: jsonResponse(tracks) },
+				{ url: `${baseUrl}/api/playlists`, response: jsonResponse(playlistPageFixture([])) },
+				{ url: `${baseUrl}/api/favourites`, response: jsonResponse(trackPageFixture([])) }
+			]),
+			createClient: createMediaServerClient
+		});
+
+		await controller.load();
+
+		expect(controller.shelves.recentlyPlayed.items).toEqual([first]);
 	});
 
 	it('preserves ready shelf items while marking non-ready shelves as loading on refresh', async () => {

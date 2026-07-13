@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
-	let query = $state(page.url.searchParams.get('q') ?? '');
+	let query = $derived(page.url.searchParams.get('q') ?? '');
 </script>
 
 <form

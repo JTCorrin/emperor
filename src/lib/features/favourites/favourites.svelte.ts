@@ -4,6 +4,7 @@ import {
 	type FetchLike,
 	type Track
 } from '$lib/api';
+import { loadAllPages } from '$lib/features/browse/loadAllPages';
 
 export type FavouritesControllerOptions = {
 	getBaseUrl: () => string | null;
@@ -67,9 +68,13 @@ export class FavouritesController {
 
 		try {
 			const client = this.#createClient({ baseUrl, fetch: this.#fetch });
-			const page = await client.getFavourites({ limit: 200, signal: abort.signal });
+			const tracks = await loadAllPages((offset) =>
+				client.getFavourites({ limit: 200, offset, signal: abort.signal })
+			);
 			if (token !== this.#token) return;
-			this.ids = page.items.map((t) => t.id);
+			this.ids = tracks
+				.map((track) => track.id)
+				.filter((id, index, ids) => ids.indexOf(id) === index);
 			this.status = 'ready';
 		} catch (cause) {
 			if (token !== this.#token) return;

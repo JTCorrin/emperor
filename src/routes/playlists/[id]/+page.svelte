@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy } from 'svelte';
+	import { fromAction } from 'svelte/attachments';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
@@ -14,6 +15,7 @@
 	} from '$lib/api';
 	import TrackRow from '$lib/components/media/TrackRow.svelte';
 	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
+	import { loadAllPages } from '$lib/features/browse/loadAllPages';
 	import { getConnection, getFavourites, getPlayer } from '$lib/state/context';
 
 	const connection = getConnection();
@@ -62,6 +64,7 @@
 		enhance: renameEnhance,
 		submitting: renameSubmitting
 	} = renameForm;
+	const renameAttachment = fromAction(renameEnhance);
 
 	onDestroy(() => {
 		loadAbort?.abort();
@@ -91,15 +94,18 @@
 		try {
 			const client = createMediaServerClient({ baseUrl });
 			const meta = await client.getPlaylist(id, abort.signal);
-			const pageTracks = await client.getPlaylistTracks(id, {
-				limit: 200,
-				signal: abort.signal
-			});
+			const allTracks = await loadAllPages((offset) =>
+				client.getPlaylistTracks(id, {
+					limit: 200,
+					offset,
+					signal: abort.signal
+				})
+			);
 			if (token !== loadToken) return;
 			playlist = meta;
-			tracks = pageTracks.items;
-			draftIds = pageTracks.items.map((t) => t.id);
-			draftTracks = pageTracks.items;
+			tracks = allTracks;
+			draftIds = allTracks.map((t) => t.id);
+			draftTracks = allTracks;
 			renameData.set({ name: meta.name });
 			status = 'ready';
 			editing = false;
@@ -205,22 +211,20 @@
 		}
 	}
 
-	$effect(() => {
+	function loadPlaylistWhenConnected() {
 		const connected = connection.status === 'connected' && connection.baseUrl !== null;
 		const id = playlistId;
 		const hasUserDb = connection.hasUserDb;
 		if (!connected) return;
-		untrack(() => {
-			if (hasUserDb === false) {
-				status = 'unavailable';
-				return;
-			}
-			void loadAll(id);
-		});
-	});
+		if (hasUserDb === false) {
+			status = 'unavailable';
+			return;
+		}
+		void loadAll(id);
+	}
 </script>
 
-<section class="flex flex-1 flex-col gap-6 pb-4">
+<section class="flex flex-1 flex-col gap-6 pb-4" {@attach loadPlaylistWhenConnected}>
 	<a
 		href={resolve('/playlists')}
 		class="text-text-muted hover:text-text min-h-touch inline-flex w-fit items-center text-base font-medium"
@@ -254,7 +258,7 @@
 			{#if editing}
 				<h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">{playlist.name}</h1>
 			{:else}
-				<form method="POST" use:renameEnhance class="flex flex-wrap items-end gap-3">
+				<form method="POST" {@attach renameAttachment} class="flex flex-wrap items-end gap-3">
 					<div class="flex min-w-0 flex-1 flex-col gap-2">
 						<label class="text-base font-medium" for="rename-playlist">Name</label>
 						<input

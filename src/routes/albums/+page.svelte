@@ -16,13 +16,12 @@
 		fetchPage: (client, query) => client.getAlbums(query)
 	});
 
-	let regroupNotice = $state<string | null>(null);
+	let showRegroupNotice = $state(false);
 
 	onMount(() => {
-		const notice = sessionStorage.getItem('emperor:album-regroup-notice');
-		if (notice) {
+		if (sessionStorage.getItem('emperor:album-regroup-notice') === 'true') {
 			sessionStorage.removeItem('emperor:album-regroup-notice');
-			regroupNotice = notice;
+			showRegroupNotice = true;
 		}
 	});
 
@@ -51,8 +50,10 @@
 		</a>
 	</div>
 
-	{#if regroupNotice}
-		<p class="text-text-muted text-base" role="status">{regroupNotice}</p>
+	{#if showRegroupNotice}
+		<p class="text-text-muted text-base" role="status">
+			Album was regrouped after the edit. Browse albums to find it.
+		</p>
 	{/if}
 
 	{#if connection.status !== 'connected'}

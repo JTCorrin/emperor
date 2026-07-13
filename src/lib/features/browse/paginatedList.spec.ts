@@ -1,15 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createMediaServerClient } from '$lib/api/client';
+import { createMediaServerClient, MediaServerRequestError } from '$lib/api/client';
+import { abortedError } from '$lib/api/errors';
 import { PaginatedListController } from '$lib/features/browse/paginatedList.svelte';
-import {
-	createFetchStub,
-	errorResponse,
-	jsonResponse,
-	trackFixture,
-	trackPageFixture
-} from '$lib/test/fixtures';
+import { createFetchStub, jsonResponse, trackFixture, trackPageFixture } from '$lib/test/fixtures';
 
-const baseUrl = 'http://192.168.5.111:8080';
+const baseUrl = 'http://127.0.0.1:8080';
 
 describe('PaginatedListController', () => {
 	it('loads the first page and appends on loadMore', async () => {
@@ -54,18 +49,41 @@ describe('PaginatedListController', () => {
 		expect(controller.hasMore).toBe(false);
 	});
 
-	it('maps load errors without wiping a later successful state incorrectly', async () => {
+	it('preserves a successful state when a later refresh fails', async () => {
+		let calls = 0;
+		const first = trackPageFixture([trackFixture({ id: 1 })]);
 		const controller = new PaginatedListController({
 			getBaseUrl: () => baseUrl,
 			createClient: createMediaServerClient,
-			fetch: createFetchStub([
-				{ url: `${baseUrl}/api/tracks`, response: errorResponse(500, 'encode_failed') }
-			]),
-			fetchPage: (client, query) => client.getTracks(query)
+			fetch: createFetchStub([]),
+			fetchPage: async () => {
+				calls += 1;
+				if (calls === 1) return first;
+				throw new Error('refresh failed');
+			}
 		});
 
 		await controller.load();
-		expect(controller.status).toBe('error');
-		expect(controller.items).toHaveLength(0);
+		await controller.load();
+
+		expect(controller.status).toBe('ready');
+		expect(controller.items).toEqual(first.items);
+		expect(controller.errorMessage).toBe('refresh failed');
+	});
+
+	it('exits loading state when a request is aborted', async () => {
+		const controller = new PaginatedListController({
+			getBaseUrl: () => baseUrl,
+			createClient: createMediaServerClient,
+			fetch: createFetchStub([]),
+			fetchPage: async () => {
+				throw new MediaServerRequestError(abortedError());
+			}
+		});
+
+		await controller.load();
+
+		expect(controller.status).toBe('idle');
+		expect(controller.loadingMore).toBe(false);
 	});
 });

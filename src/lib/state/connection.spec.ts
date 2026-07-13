@@ -27,7 +27,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
 describe('ConnectionController', () => {
 	it('connects, persists the base URL, and stores library status', async () => {
 		const storage = memoryStorage();
-		const baseUrl = 'http://192.168.5.111:8080';
+		const baseUrl = 'http://127.0.0.1:8080';
 		const controller = new ConnectionController({
 			storage,
 			fetch: createFetchStub([
@@ -50,7 +50,7 @@ describe('ConnectionController', () => {
 	});
 
 	it('sets hasUserDb false when playlists probe returns no_user_db', async () => {
-		const baseUrl = 'http://192.168.5.111:8080';
+		const baseUrl = 'http://127.0.0.1:8080';
 		const controller = new ConnectionController({
 			storage: memoryStorage(),
 			fetch: createFetchStub([
@@ -74,13 +74,23 @@ describe('ConnectionController', () => {
 			}
 		});
 
-		await expect(controller.connect('http://192.168.5.111:8080')).resolves.toBe(false);
+		await expect(controller.connect('http://127.0.0.1:8080')).resolves.toBe(false);
 		expect(controller.status).toBe('error');
 		expect(controller.error?.kind).toBe('network');
 	});
 
+	it('reports invalid base URLs as validation errors', async () => {
+		const controller = new ConnectionController({
+			storage: memoryStorage(),
+			fetch: createFetchStub([])
+		});
+
+		await expect(controller.connect('javascript:alert(1)')).resolves.toBe(false);
+		expect(controller.error?.kind).toBe('validation');
+	});
+
 	it('restores a saved URL and can recheck it', async () => {
-		const baseUrl = 'http://192.168.5.111:8080';
+		const baseUrl = 'http://127.0.0.1:8080';
 		const storage = memoryStorage({ [CONNECTION_STORAGE_KEY]: baseUrl });
 		const fetchStub = createFetchStub([
 			{ url: `${baseUrl}/api/ping`, response: jsonResponse(pingFixture()) },
@@ -100,7 +110,7 @@ describe('ConnectionController', () => {
 	});
 
 	it('disconnect clears persisted state', async () => {
-		const baseUrl = 'http://192.168.5.111:8080';
+		const baseUrl = 'http://127.0.0.1:8080';
 		const storage = memoryStorage({ [CONNECTION_STORAGE_KEY]: baseUrl });
 		const controller = new ConnectionController({
 			storage,
@@ -116,7 +126,7 @@ describe('ConnectionController', () => {
 	});
 
 	it('starts a scan on 202 and maps 409 to a busy message', async () => {
-		const baseUrl = 'http://192.168.5.111:8080';
+		const baseUrl = 'http://127.0.0.1:8080';
 		let scanCount = 0;
 		const controller = new ConnectionController({
 			storage: memoryStorage(),
@@ -157,7 +167,7 @@ describe('ConnectionController', () => {
 	});
 
 	it('stops scan polling on disconnect', async () => {
-		const baseUrl = 'http://192.168.5.111:8080';
+		const baseUrl = 'http://127.0.0.1:8080';
 		let statusHits = 0;
 		const controller = new ConnectionController({
 			storage: memoryStorage(),

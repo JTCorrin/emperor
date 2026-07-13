@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { fromAction } from 'svelte/attachments';
 	import { defaults, superForm } from 'sveltekit-superforms';
 	import { zod4 } from 'sveltekit-superforms/adapters';
 	import {
@@ -19,17 +20,16 @@
 		album: Album | null;
 		onsaved?: (album: Album) => void;
 		onclose?: () => void;
-		onregrouped?: (message: string) => void;
 	}
 
-	let { album, onsaved, onclose, onregrouped }: Props = $props();
+	let { album, onsaved, onclose }: Props = $props();
 
 	const connection = getConnection();
 
-	let dialog: HTMLDialogElement | undefined = $state();
+	let dialog: HTMLDialogElement | undefined;
 	let saveError = $state<string | null>(null);
 	let cleared = $state<Partial<Record<keyof AlbumMetadataPatch, boolean>>>({});
-	let formAlbumId = $state<number | null>(null);
+	let formAlbumId: number | null = null;
 
 	const { form, errors, enhance, submitting, reset } = superForm(
 		defaults(emptyForm(), zod4(albumMetadataFormSchema)),
@@ -54,12 +54,8 @@
 					const result = await refetchAlbumAfterPatch((id) => client.getAlbum(id), album.id);
 					if (result.kind === 'regrouped') {
 						closeDialog();
-						onregrouped?.('Album was regrouped after the edit. Browse albums to find it.');
 						if (typeof sessionStorage !== 'undefined') {
-							sessionStorage.setItem(
-								'emperor:album-regroup-notice',
-								'Album was regrouped after the edit. Browse albums to find it.'
-							);
+							sessionStorage.setItem('emperor:album-regroup-notice', 'true');
 						}
 						await goto(resolve('/albums'));
 						return;
@@ -81,6 +77,7 @@
 			}
 		}
 	);
+	const enhanceAttachment = fromAction(enhance);
 
 	function emptyForm(): AlbumMetadataForm {
 		return {
@@ -105,7 +102,8 @@
 		}
 	}
 
-	$effect(() => {
+	function syncDialog(element: HTMLDialogElement) {
+		dialog = element;
 		const next = album;
 		if (next) {
 			if (formAlbumId !== next.id) {
@@ -121,11 +119,11 @@
 			formAlbumId = null;
 			if (dialog?.open) dialog.close();
 		}
-	});
+	}
 </script>
 
 <dialog
-	bind:this={dialog}
+	{@attach syncDialog}
 	class="bg-surface-raised text-text border-border fixed inset-0 m-auto max-h-[min(90dvh,36rem)] w-[min(100%-2rem,32rem)] overflow-y-auto rounded-card border p-0 shadow-xl backdrop:bg-black/60 open:flex open:flex-col"
 	aria-labelledby="album-metadata-title"
 	onclose={() => {
@@ -137,7 +135,7 @@
 	{#if album}
 		<form
 			method="POST"
-			use:enhance
+			{@attach enhanceAttachment}
 			class="flex flex-col gap-4 p-6"
 			onsubmit={(event) => event.stopPropagation()}
 		>

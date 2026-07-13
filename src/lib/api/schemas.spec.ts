@@ -86,10 +86,11 @@ describe('API schemas', () => {
 	});
 
 	it('validates connect form URLs', () => {
-		expect(connectFormSchema.parse({ baseUrl: ' http://192.168.5.111:8080 ' })).toEqual({
-			baseUrl: 'http://192.168.5.111:8080'
+		expect(connectFormSchema.parse({ baseUrl: ' http://127.0.0.1:8080 ' })).toEqual({
+			baseUrl: 'http://127.0.0.1:8080'
 		});
 		expect(connectFormSchema.safeParse({ baseUrl: 'not-a-url' }).success).toBe(false);
+		expect(connectFormSchema.safeParse({ baseUrl: 'http://user@example.com' }).success).toBe(false);
 	});
 
 	it('accepts partial track and album metadata patches including null clears', () => {
@@ -109,6 +110,9 @@ describe('API schemas', () => {
 			updated_track_count: 4
 		});
 		expect(trackMetadataPatchSchema.safeParse({ release_date: '13-2024' }).success).toBe(false);
+		for (const release_date of ['2024', '2024-03', '2024-03-02']) {
+			expect(trackMetadataPatchSchema.safeParse({ release_date }).success).toBe(true);
+		}
 		expect(
 			trackMetadataFormSchema.safeParse({
 				title: 't',
@@ -127,6 +131,18 @@ describe('API schemas', () => {
 				release_date: '',
 				genre: ''
 			}).success
+		).toBe(false);
+	});
+
+	it('rejects oversized server strings and page arrays', () => {
+		expect(trackSchema.safeParse(trackFixture({ title: 'x'.repeat(2049) })).success).toBe(false);
+		expect(
+			trackPageSchema.safeParse(
+				trackPageFixture(
+					Array.from({ length: 201 }, (_, index) => trackFixture({ id: index + 1 })),
+					{ total: 201, limit: 200 }
+				)
+			).success
 		).toBe(false);
 	});
 });

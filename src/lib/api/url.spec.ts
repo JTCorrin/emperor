@@ -3,7 +3,7 @@ import { BaseUrlError, coverUrl, normalizeBaseUrl, streamUrl } from '$lib/api/ur
 
 describe('normalizeBaseUrl', () => {
 	it('trims whitespace and trailing slashes', () => {
-		expect(normalizeBaseUrl('  http://192.168.5.111:8080/  ')).toBe('http://192.168.5.111:8080');
+		expect(normalizeBaseUrl('  http://127.0.0.1:8080/  ')).toBe('http://127.0.0.1:8080');
 	});
 
 	it('keeps nested path prefixes without a trailing slash', () => {
@@ -29,8 +29,8 @@ describe('normalizeBaseUrl', () => {
 
 describe('media URL helpers', () => {
 	it('builds stream and cover URLs from a normalized base', () => {
-		const base = 'http://192.168.5.111:8080/';
-		expect(streamUrl(base, 12)).toBe('http://192.168.5.111:8080/stream/12');
-		expect(coverUrl(base, 3)).toBe('http://192.168.5.111:8080/cover/3');
+		const base = 'http://127.0.0.1:8080/';
+		expect(streamUrl(base, 12)).toBe('http://127.0.0.1:8080/stream/12');
+		expect(coverUrl(base, 3)).toBe('http://127.0.0.1:8080/cover/3');
 	});
 });

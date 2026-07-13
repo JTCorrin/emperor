@@ -21,7 +21,7 @@
 
 	onDestroy(() => search.dispose());
 
-	$effect(() => {
+	function scheduleUrlSync() {
 		const next = draft;
 		const current = urlQuery;
 		const handle = setTimeout(() => {
@@ -42,16 +42,19 @@
 			}
 		}, 300);
 		return () => clearTimeout(handle);
-	});
+	}
 
-	$effect(() => {
+	function runSearchEffect() {
 		const q = urlQuery;
 		const connected = connection.status === 'connected' && connection.baseUrl !== null;
 		if (!connected) return;
 		untrack(() => {
 			void search.search(q);
 		});
-	});
+	}
+
+	$effect(scheduleUrlSync);
+	$effect(runSearchEffect);
 </script>
 
 <section class="flex flex-1 flex-col gap-8 pb-4">

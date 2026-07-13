@@ -46,6 +46,7 @@ export class PlayerController {
 	#createClient: typeof createMediaServerClient;
 	#historyThresholdSeconds: number;
 	#historyRecordedForTrackId: number | null = null;
+	#historyPendingForTrackId: number | null = null;
 	#loadToken = 0;
 	#listenersAttached = false;
 
@@ -88,6 +89,10 @@ export class PlayerController {
 			return;
 		}
 		void this.#loadCurrent(true);
+	}
+
+	updateTrackInQueue(updated: Track): void {
+		this.queue = this.queue.map((track) => (track.id === updated.id ? updated : track));
 	}
 
 	async play(): Promise<void> {
@@ -147,6 +152,12 @@ export class PlayerController {
 
 	collapse(): void {
 		this.expanded = false;
+	}
+
+	dispose(): void {
+		this.#detachListeners();
+		this.#audio = null;
+		this.#loadToken += 1;
 	}
 
 	async #loadCurrent(autoplay: boolean): Promise<void> {
@@ -266,19 +277,25 @@ export class PlayerController {
 		}
 
 		const baseUrl = this.#getBaseUrl();
-		if (!track || !baseUrl) return;
+		if (!track || !baseUrl || this.#historyPendingForTrackId === track.id) return;
 
-		this.#historyRecordedForTrackId = track.id;
+		this.#historyPendingForTrackId = track.id;
 		try {
 			const client: MediaServerClient = this.#createClient({
 				baseUrl,
 				fetch: this.#fetch
 			});
 			await client.recordHistory(track.id);
+			this.#historyRecordedForTrackId = track.id;
 		} catch (cause) {
 			// Soft-fail: playback continues even without user-db / network.
 			if (cause instanceof MediaServerRequestError && cause.error.kind === 'no_user_db') {
+				this.#historyRecordedForTrackId = track.id;
 				return;
+			}
+		} finally {
+			if (this.#historyPendingForTrackId === track.id) {
+				this.#historyPendingForTrackId = null;
 			}
 		}
 	}

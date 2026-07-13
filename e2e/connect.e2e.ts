@@ -16,7 +16,7 @@ const libraryStatusFixture = {
 
 test.describe('connect journey', () => {
 	test('connects successfully against intercepted media-server responses', async ({ page }) => {
-		const baseUrl = 'http://192.168.5.111:8080';
+		const baseUrl = 'http://127.0.0.1:8080';
 
 		await page.route(`${baseUrl}/api/ping`, async (route) => {
 			await route.fulfill({
@@ -47,13 +47,35 @@ test.describe('connect journey', () => {
 		await expect(page.getByText('Connected', { exact: true })).toBeVisible();
 		await expect(page.getByText(/8080 tracks/)).toBeVisible();
 		await expect(page.getByRole('status')).toContainText(`Connected to ${baseUrl}`);
+
+		await page.getByRole('button', { name: 'Disconnect' }).click();
+		await expect(page.getByText('Not connected', { exact: true })).toBeVisible();
 	});
 
-	test('shows an error when the probe fails', async ({ page }) => {
-		const baseUrl = 'http://192.168.5.111:8080';
+	test('shows an error when the probe fails and recovers on retry', async ({ page }) => {
+		const baseUrl = 'http://127.0.0.1:8080';
+		let shouldFail = true;
 
 		await page.route(`${baseUrl}/api/ping`, async (route) => {
-			await route.abort('failed');
+			if (shouldFail) {
+				await route.abort('failed');
+				return;
+			}
+			await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+		});
+		await page.route(`${baseUrl}/api/library/status`, async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify(libraryStatusFixture)
+			});
+		});
+		await page.route(`${baseUrl}/api/playlists**`, async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({ items: [], total: 0, limit: 1, offset: 0 })
+			});
 		});
 
 		await page.goto('/connect');
@@ -62,5 +84,9 @@ test.describe('connect journey', () => {
 
 		await expect(page.getByRole('alert')).toContainText(/Could not reach the media server/i);
 		await expect(page.getByText('Connection error')).toBeVisible();
+
+		shouldFail = false;
+		await page.getByRole('button', { name: 'Connect', exact: true }).click();
+		await expect(page.getByText('Connected', { exact: true })).toBeVisible();
 	});
 });

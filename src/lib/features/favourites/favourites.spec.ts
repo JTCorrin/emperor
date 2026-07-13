@@ -9,7 +9,7 @@ import {
 	trackPageFixture
 } from '$lib/test/fixtures';
 
-const baseUrl = 'http://192.168.5.111:8080';
+const baseUrl = 'http://127.0.0.1:8080';
 
 describe('FavouritesController', () => {
 	it('loads favourite ids and toggles optimistically', async () => {
@@ -78,5 +78,65 @@ describe('FavouritesController', () => {
 
 		await controller.load();
 		expect(controller.status).toBe('unavailable');
+	});
+
+	it('loads all favourite pages beyond the server page limit', async () => {
+		const first = Array.from({ length: 200 }, (_, index) => trackFixture({ id: index + 1 }));
+		const controller = new FavouritesController({
+			getBaseUrl: () => baseUrl,
+			getHasUserDb: () => true,
+			createClient: createMediaServerClient,
+			fetch: async (input) => {
+				const offset = Number(new URL(String(input)).searchParams.get('offset'));
+				return jsonResponse(
+					trackPageFixture(offset === 0 ? first : [trackFixture({ id: 201 })], {
+						total: 201,
+						limit: 200,
+						offset
+					})
+				);
+			}
+		});
+
+		await controller.load();
+
+		expect(controller.ids).toHaveLength(201);
+		expect(controller.ids.at(-1)).toBe(201);
+	});
+
+	it('maps a server no_user_db response to unavailable', async () => {
+		const controller = new FavouritesController({
+			getBaseUrl: () => baseUrl,
+			getHasUserDb: () => null,
+			createClient: createMediaServerClient,
+			fetch: createFetchStub([
+				{ url: `${baseUrl}/api/favourites`, response: errorResponse(400, 'no_user_db') }
+			])
+		});
+
+		await controller.load();
+
+		expect(controller.status).toBe('unavailable');
+		expect(controller.errorMessage).toBeNull();
+	});
+
+	it('prevents duplicate concurrent toggles for the same track', async () => {
+		let resolveResponse: ((response: Response) => void) | undefined;
+		const pendingResponse = new Promise<Response>((resolve) => {
+			resolveResponse = resolve;
+		});
+		const track = trackFixture({ id: 9 });
+		const controller = new FavouritesController({
+			getBaseUrl: () => baseUrl,
+			getHasUserDb: () => true,
+			createClient: createMediaServerClient,
+			fetch: async () => pendingResponse
+		});
+
+		const first = controller.toggle(track);
+		await expect(controller.toggle(track)).resolves.toBe(false);
+		expect(controller.isPending(track.id)).toBe(true);
+		resolveResponse?.(new Response(null, { status: 204 }));
+		await expect(first).resolves.toBe(true);
 	});
 });

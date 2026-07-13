@@ -1,6 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
-const baseUrl = 'http://192.168.5.111:8080';
+const baseUrl = 'http://127.0.0.1:8080';
 
 const pingFixture = { ok: true as const };
 const libraryStatusFixture = {
@@ -139,11 +139,14 @@ test.describe('browse and search', () => {
 		await page.getByRole('button', { name: /Browse Album/ }).click();
 
 		await expect(page.getByRole('heading', { name: 'Browse Album' })).toBeVisible();
-		await page.getByRole('button', { name: /Browse Track/ }).click();
+		await page
+			.getByRole('button', { name: /Browse Track/ })
+			.first()
+			.click();
 		await expect(page.getByLabel('Now playing')).toContainText('Browse Track');
 	});
 
-	test('shows search results for a linkable query', async ({ page }) => {
+	test('shows search results for a linkable query and plays a track', async ({ page }) => {
 		await stubBrowseApis(page);
 		await connect(page);
 
@@ -153,6 +156,8 @@ test.describe('browse and search', () => {
 		await expect(page.getByRole('button', { name: /Browse Track/ })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Artists' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Albums' })).toBeVisible();
+		await page.getByRole('button', { name: /Browse Track/ }).click();
+		await expect(page.getByLabel('Now playing')).toContainText('Browse Track');
 	});
 
 	test('keeps podcasts unavailable messaging', async ({ page }) => {

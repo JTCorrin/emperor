@@ -19,7 +19,7 @@ import {
 	trackPageFixture
 } from '$lib/test/fixtures';
 
-const baseUrl = 'http://192.168.5.111:8080';
+const baseUrl = 'http://127.0.0.1:8080';
 
 describe('createMediaServerClient', () => {
 	it('pings a healthy server', async () => {
@@ -381,6 +381,20 @@ describe('createMediaServerClient', () => {
 		});
 
 		await expect(client.ping()).rejects.toMatchObject({ error: { kind: 'network' } });
+	});
+
+	it('maps aborted requests separately from network failures', async () => {
+		const abort = new AbortController();
+		abort.abort();
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: async (_input, init) => {
+				expect(init?.signal?.aborted).toBe(true);
+				throw new DOMException('Aborted', 'AbortError');
+			}
+		});
+
+		await expect(client.ping(abort.signal)).rejects.toMatchObject({ error: { kind: 'aborted' } });
 	});
 
 	it('maps non-OK HTTP responses', async () => {

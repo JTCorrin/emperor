@@ -69,6 +69,8 @@ export class PaginatedListController<T> {
 		const abort = new AbortController();
 		this.#abort = abort;
 		const token = ++this.#token;
+		const previousItems = this.items;
+		const previousTotal = this.total;
 
 		this.status = 'loading';
 		this.items = [];
@@ -93,11 +95,14 @@ export class PaginatedListController<T> {
 		} catch (cause) {
 			if (token !== this.#token) return;
 			if (cause instanceof MediaServerRequestError && cause.error.kind === 'aborted') {
+				this.items = previousItems;
+				this.total = previousTotal;
+				this.status = previousItems.length > 0 ? 'ready' : 'idle';
 				return;
 			}
-			this.status = 'error';
-			this.items = [];
-			this.total = 0;
+			this.status = previousItems.length > 0 ? 'ready' : 'error';
+			this.items = previousItems;
+			this.total = previousTotal;
 			this.errorMessage = cause instanceof Error ? cause.message : 'Could not load this list.';
 		}
 	}
@@ -130,6 +135,7 @@ export class PaginatedListController<T> {
 		} catch (cause) {
 			if (token !== this.#token) return;
 			if (cause instanceof MediaServerRequestError && cause.error.kind === 'aborted') {
+				this.loadingMore = false;
 				return;
 			}
 			this.loadingMore = false;

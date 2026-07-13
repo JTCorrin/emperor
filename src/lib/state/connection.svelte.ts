@@ -26,7 +26,7 @@ function toMediaServerError(cause: unknown): MediaServerError {
 
 	if (cause instanceof BaseUrlError) {
 		return {
-			kind: 'schema',
+			kind: 'validation',
 			message: cause.message,
 			cause
 		};

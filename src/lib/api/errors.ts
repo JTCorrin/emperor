@@ -1,4 +1,5 @@
-export type MediaServerErrorKind = 'network' | 'http' | 'schema' | 'no_user_db' | 'aborted';
+export type MediaServerErrorKind =
+	'network' | 'http' | 'schema' | 'validation' | 'no_user_db' | 'aborted';
 
 export type MediaServerError = {
 	kind: MediaServerErrorKind;

@@ -14,14 +14,51 @@
 	const canPrevious = $derived(player.index > 0);
 	const canNext = $derived(player.index >= 0 && player.index < player.queue.length - 1);
 
-	function onKeydown(event: KeyboardEvent) {
+	function onWindowKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape' && player.expanded) {
+			event.preventDefault();
 			player.collapse();
 		}
 	}
+
+	function trapFocus(event: KeyboardEvent) {
+		if (event.key !== 'Tab') return;
+
+		const dialog = event.currentTarget as HTMLDivElement;
+		const focusable = Array.from(
+			dialog.querySelectorAll<HTMLElement>(
+				'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			)
+		);
+		if (focusable.length === 0) {
+			event.preventDefault();
+			dialog.focus();
+			return;
+		}
+
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		const active = document.activeElement;
+		if (event.shiftKey && (active === first || !dialog.contains(active))) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
+
+	function focusCloseOnOpen(button: HTMLButtonElement) {
+		const previousFocus =
+			document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		queueMicrotask(() => button.focus());
+		return () => {
+			if (previousFocus?.isConnected) previousFocus.focus();
+		};
+	}
 </script>
 
-<svelte:window onkeydown={onKeydown} />
+<svelte:window onkeydown={onWindowKeydown} />
 
 {#if player.expanded && track}
 	<div
@@ -32,13 +69,15 @@
 			class="border-border bg-surface-raised rounded-card relative flex w-full max-w-xl flex-col gap-6 border p-6 shadow-2xl"
 			role="dialog"
 			aria-modal="true"
-			aria-label="Now playing"
+			aria-labelledby="now-playing-title"
 			tabindex="-1"
+			onkeydown={trapFocus}
 		>
 			<button
 				type="button"
 				class="border-border bg-surface-muted absolute top-4 right-4 min-h-touch min-w-touch rounded-card border text-base font-medium"
 				onclick={() => player.collapse()}
+				{@attach focusCloseOnOpen}
 			>
 				Close
 			</button>
@@ -46,7 +85,7 @@
 			<div class="mt-8 flex flex-col items-center gap-4 text-center">
 				<CoverArt title={track.title} artist={track.artist} {baseUrl} size="lg" />
 				<div>
-					<h2 class="text-2xl font-semibold">{track.title}</h2>
+					<h2 id="now-playing-title" class="text-2xl font-semibold">{track.title}</h2>
 					<p class="text-text-muted text-lg">{track.artist}</p>
 					<p class="text-text-muted text-sm">{track.album}</p>
 				</div>

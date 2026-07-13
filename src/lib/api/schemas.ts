@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import { normalizeBaseUrl } from './url';
+
+const MAX_SERVER_STRING_LENGTH = 2048;
+const MAX_PAGE_ITEMS = 200;
+const serverString = z.string().max(MAX_SERVER_STRING_LENGTH);
 
 export const pingResponseSchema = z.object({
 	ok: z.literal(true)
@@ -7,10 +12,10 @@ export const pingResponseSchema = z.object({
 export const libraryStatusSchema = z.object({
 	scanning: z.boolean(),
 	has_library: z.boolean(),
-	library_dir: z.string(),
+	library_dir: serverString,
 	last_scan_unix: z.number().nullable().optional(),
 	last_scan_ok: z.boolean().optional(),
-	last_error: z.string().optional(),
+	last_error: serverString.optional(),
 	track_count: z.number().int().nonnegative(),
 	image_count: z.number().int().nonnegative(),
 	artist_count: z.number().int().nonnegative(),
@@ -18,7 +23,7 @@ export const libraryStatusSchema = z.object({
 });
 
 export const errorBodySchema = z.object({
-	error: z.string()
+	error: serverString
 });
 
 export const connectFormSchema = z.object({
@@ -28,8 +33,8 @@ export const connectFormSchema = z.object({
 		.min(1, 'Base URL is required')
 		.refine((value) => {
 			try {
-				const parsed = new URL(value);
-				return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+				normalizeBaseUrl(value);
+				return true;
 			} catch {
 				return false;
 			}
@@ -47,23 +52,23 @@ export const playlistTracksBodySchema = z.object({
 export const trackSchema = z.object({
 	id: z.number().int().positive(),
 	kind: z.literal('audio'),
-	path: z.string(),
-	filename: z.string(),
-	artist: z.string(),
-	album: z.string(),
-	title: z.string(),
-	release_date: z.string().nullable(),
-	genre: z.string().nullable(),
+	path: serverString,
+	filename: serverString,
+	artist: serverString,
+	album: serverString,
+	title: serverString,
+	release_date: serverString.nullable(),
+	genre: serverString.nullable(),
 	track_number: z.number().int().nullable(),
 	disc_number: z.number().int().nullable(),
-	overridden_fields: z.array(z.string())
+	overridden_fields: z.array(z.string().max(100)).max(32)
 });
 
 export function pageEnvelopeSchema<T extends z.ZodType>(itemSchema: T) {
 	return z.object({
-		items: z.array(itemSchema),
+		items: z.array(itemSchema).max(MAX_PAGE_ITEMS),
 		total: z.number().int().nonnegative(),
-		limit: z.number().int().positive(),
+		limit: z.number().int().positive().max(MAX_PAGE_ITEMS),
 		offset: z.number().int().nonnegative()
 	});
 }
@@ -72,7 +77,7 @@ export const trackPageSchema = pageEnvelopeSchema(trackSchema);
 
 export const playlistSchema = z.object({
 	id: z.number().int().positive(),
-	name: z.string(),
+	name: serverString,
 	track_count: z.number().int().nonnegative(),
 	created_unix: z.number().int(),
 	updated_unix: z.number().int()
@@ -89,7 +94,7 @@ export const historyPageSchema = pageEnvelopeSchema(historyItemSchema);
 
 export const artistSchema = z.object({
 	id: z.number().int().positive(),
-	name: z.string(),
+	name: serverString,
 	album_count: z.number().int().nonnegative(),
 	track_count: z.number().int().nonnegative()
 });
@@ -98,19 +103,19 @@ export const artistPageSchema = pageEnvelopeSchema(artistSchema);
 
 export const albumSchema = z.object({
 	id: z.number().int().positive(),
-	name: z.string(),
-	artist: z.string(),
+	name: serverString,
+	artist: serverString,
 	artist_id: z.number().int().positive(),
 	track_count: z.number().int().nonnegative(),
-	release_date: z.string().nullable(),
-	genre: z.string().nullable(),
+	release_date: serverString.nullable(),
+	genre: serverString.nullable(),
 	cover_id: z.number().int().positive().nullable()
 });
 
 export const albumPageSchema = pageEnvelopeSchema(albumSchema);
 
 export const searchResponseSchema = z.object({
-	q: z.string(),
+	q: serverString,
 	fuzzy: z.boolean(),
 	tracks: trackPageSchema,
 	artists: artistPageSchema,

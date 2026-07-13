@@ -33,12 +33,7 @@
 	function onTrackSaved(updated: Track) {
 		editingTrack = null;
 		list.items = list.items.map((item) => (item.id === updated.id ? updated : item));
-		const queueIndex = player.queue.findIndex((item) => item.id === updated.id);
-		if (queueIndex >= 0) {
-			const nextQueue = [...player.queue];
-			nextQueue[queueIndex] = updated;
-			player.queue = nextQueue;
-		}
+		player.updateTrackInQueue(updated);
 	}
 </script>
 

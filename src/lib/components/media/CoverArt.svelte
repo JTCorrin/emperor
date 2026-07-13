@@ -47,7 +47,7 @@
 {#if src}
 	<img
 		{src}
-		alt=""
+		alt={artist.trim() ? `Cover art for ${title} by ${artist}` : `Cover art for ${title}`}
 		class="bg-surface-muted rounded-card object-cover {sizeClass} {className}"
 		loading="lazy"
 	/>

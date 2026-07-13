@@ -20,4 +20,12 @@ describe('refetchAlbumAfterPatch', () => {
 			}, 9)
 		).resolves.toEqual({ kind: 'regrouped' });
 	});
+
+	it('maps other failures to an actionable error result', async () => {
+		await expect(
+			refetchAlbumAfterPatch(async () => {
+				throw new TypeError('network unavailable');
+			}, 9)
+		).resolves.toEqual({ kind: 'error', message: 'network unavailable' });
+	});
 });

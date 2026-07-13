@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import CoverArt from '$lib/components/media/CoverArt.svelte';
@@ -14,7 +15,9 @@
 	} from '$lib/api';
 	import AlbumMetadataDialog from '$lib/features/metadata/AlbumMetadataDialog.svelte';
 	import TrackMetadataDialog from '$lib/features/metadata/TrackMetadataDialog.svelte';
+	import { sortAlbumTracks } from '$lib/features/browse/albumTracks';
 	import { PaginatedListController } from '$lib/features/browse/paginatedList.svelte';
+	import { refetchAlbumAfterPatch } from '$lib/features/metadata/albumRegroup';
 	import { getConnection, getPlayer } from '$lib/state/context';
 
 	const connection = getConnection();
@@ -29,7 +32,6 @@
 	let albumToken = 0;
 	let editingTrack = $state.raw<Track | null>(null);
 	let editingAlbum = $state.raw<Album | null>(null);
-	let regroupNotice = $state<string | null>(null);
 
 	const tracks = new PaginatedListController<Track>({
 		getBaseUrl: () => connection.baseUrl,
@@ -76,20 +78,51 @@
 		}
 	}
 
+	async function loadTracks() {
+		await tracks.load();
+		tracks.items = sortAlbumTracks(tracks.items);
+	}
+
+	async function loadMoreTracks() {
+		await tracks.loadMore();
+		tracks.items = sortAlbumTracks(tracks.items);
+	}
+
 	function overrideStatus(track: Track): string {
 		if (!track.overridden_fields.length) return '';
 		return `Overridden: ${track.overridden_fields.join(', ')}`;
 	}
 
-	function onTrackSaved(updated: Track) {
+	async function onTrackSaved(updated: Track) {
+		const previous = editingTrack;
 		editingTrack = null;
-		tracks.items = tracks.items.map((item) => (item.id === updated.id ? updated : item));
-		const queueIndex = player.queue.findIndex((item) => item.id === updated.id);
-		if (queueIndex >= 0) {
-			const nextQueue = [...player.queue];
-			nextQueue[queueIndex] = updated;
-			player.queue = nextQueue;
+		tracks.items = sortAlbumTracks(
+			tracks.items.map((item) => (item.id === updated.id ? updated : item))
+		);
+		player.updateTrackInQueue(updated);
+
+		if (!previous || (previous.album === updated.album && previous.artist === updated.artist))
+			return;
+
+		const baseUrl = connection.baseUrl;
+		if (!baseUrl) return;
+		const client = createMediaServerClient({ baseUrl });
+		const result = await refetchAlbumAfterPatch((id) => client.getAlbum(id), albumId);
+		if (result.kind === 'regrouped') {
+			sessionStorage.setItem('emperor:album-regroup-notice', 'true');
+			await goto(resolve('/albums'));
+			return;
 		}
+		if (result.kind === 'error') {
+			album = null;
+			albumStatus = 'error';
+			albumError = result.message;
+			return;
+		}
+		album = result.album;
+		albumStatus = 'ready';
+		albumError = null;
+		await loadTracks();
 	}
 
 	$effect(() => {
@@ -98,7 +131,7 @@
 		if (!connected) return;
 		untrack(() => {
 			void loadAlbum(id);
-			void tracks.load();
+			void loadTracks();
 		});
 	});
 </script>
@@ -110,10 +143,6 @@
 	>
 		Back to albums
 	</a>
-
-	{#if regroupNotice}
-		<p class="text-text-muted text-base" role="status">{regroupNotice}</p>
-	{/if}
 
 	{#if connection.status !== 'connected'}
 		<div class="border-border bg-surface-raised rounded-card border p-6">
@@ -193,7 +222,7 @@
 				title="Error"
 				message={tracks.errorMessage ?? 'Could not load tracks.'}
 				tone="danger"
-				onretry={() => tracks.load()}
+				onretry={loadTracks}
 			/>
 		{:else}
 			<ul class="flex flex-col gap-2">
@@ -215,7 +244,7 @@
 			<LoadMoreButton
 				hasMore={tracks.hasMore}
 				loading={tracks.loadingMore}
-				onclick={() => tracks.loadMore()}
+				onclick={loadMoreTracks}
 			/>
 		{/if}
 	{/if}
@@ -234,13 +263,9 @@
 	onsaved={(next) => {
 		editingAlbum = null;
 		album = next;
-		void tracks.load();
+		void loadTracks();
 	}}
 	onclose={() => {
 		editingAlbum = null;
-	}}
-	onregrouped={(message) => {
-		editingAlbum = null;
-		regroupNotice = message;
 	}}
 />

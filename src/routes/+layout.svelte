@@ -27,8 +27,6 @@
 	setPlayer(player);
 	setFavourites(favourites);
 
-	let audioEl: HTMLAudioElement | undefined = $state();
-
 	onMount(() => {
 		const restored = connection.restore();
 		if (restored) {
@@ -36,26 +34,25 @@
 		}
 	});
 
-	onDestroy(() => favourites.dispose());
-
-	$effect(() => {
-		if (audioEl) {
-			player.attachAudio(audioEl);
-		}
+	onDestroy(() => {
+		favourites.dispose();
+		player.dispose();
 	});
 
-	$effect(() => {
-		const connected = connection.status === 'connected' && connection.baseUrl !== null;
+	function attachAudio(audio: HTMLAudioElement) {
+		player.attachAudio(audio);
+	}
+
+	function loadFavouritesEffect() {
 		const hasUserDb = connection.hasUserDb;
-		if (!connected) return;
-		untrack(() => {
-			if (hasUserDb === false) {
+		if (hasUserDb === true) {
+			untrack(() => {
 				void favourites.load();
-				return;
-			}
-			void favourites.load();
-		});
-	});
+			});
+		}
+	}
+
+	$effect(loadFavouritesEffect);
 </script>
 
 <svelte:head>
@@ -80,19 +77,21 @@
 		<ConnectionStatusBar {connection} />
 	</header>
 
-	<main class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6">
+	<main class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-6 pb-40 sm:px-6">
 		{@render children()}
 	</main>
 
-	<audio bind:this={audioEl} preload="metadata" class="hidden"></audio>
-	<CompactPlayer
-		{player}
-		baseUrl={connection.baseUrl}
-		{favourites}
-		hasUserDb={connection.hasUserDb}
-	/>
+	<audio {@attach attachAudio} preload="metadata" class="hidden"></audio>
 	<NowPlayingOverlay {player} baseUrl={connection.baseUrl} />
-	<div class="sticky bottom-0 z-10">
+	<div
+		class="fixed inset-x-0 bottom-0 z-10 pr-[var(--spacing-safe-right)] pb-[var(--spacing-safe-bottom)] pl-[var(--spacing-safe-left)]"
+	>
+		<CompactPlayer
+			{player}
+			baseUrl={connection.baseUrl}
+			{favourites}
+			hasUserDb={connection.hasUserDb}
+		/>
 		<TabBar />
 	</div>
 </div>

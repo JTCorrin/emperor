@@ -75,6 +75,12 @@ async function loadTrackShelf(loader: () => Promise<{ items: Track[] }>): Promis
 	}
 }
 
+function dedupeTracks(tracks: Track[]): Track[] {
+	return tracks.filter(
+		(track, index) => tracks.findIndex((candidate) => candidate.id === track.id) === index
+	);
+}
+
 async function loadPlaylistShelf(
 	loader: () => Promise<{ items: Playlist[] }>
 ): Promise<PlaylistShelfState> {
@@ -170,7 +176,10 @@ export class HomeShelvesController {
 		const [discover, recent, recentlyPlayed, playlists, favourites] = await Promise.all([
 			loadTrackShelf(() => client.getDiscoverRandom(query)),
 			loadTrackShelf(() => client.getDiscoverRecent(query)),
-			loadTrackShelf(() => client.getRecentlyPlayed(query)),
+			loadTrackShelf(async () => {
+				const page = await client.getRecentlyPlayed(query);
+				return { items: dedupeTracks(page.items) };
+			}),
 			loadPlaylistShelf(() => client.getPlaylists(query)),
 			loadTrackShelf(() => client.getFavourites(query))
 		]);
