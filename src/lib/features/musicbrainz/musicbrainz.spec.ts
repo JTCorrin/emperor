@@ -14,12 +14,8 @@ import {
 	mapReleaseToAlbumForm,
 	normalizeMbDate
 } from './mapToForm';
-import {
-	createMusicBrainzClient,
-	COVER_ART_ARCHIVE_BASE,
-	MUSICBRAINZ_API_BASE,
-	MusicBrainzError
-} from './client';
+import { createMusicBrainzClient, MusicBrainzError } from './client';
+import { COVER_ART_ARCHIVE_BASE, MB_CONTACT_HEADER, MUSICBRAINZ_API_BASE } from './constants';
 import { lookupAlbumMetadata, lookupTrackMetadata } from './lookup';
 import { applyAlbumCoverFromMusicBrainz } from './applyCover';
 import { MediaServerRequestError } from '$lib/api';
@@ -187,6 +183,23 @@ describe('musicbrainz client (stubbed fetch)', () => {
 
 	it('rejects missing contact', () => {
 		expect(() => createMusicBrainzClient({ contact: '' })).toThrow(MusicBrainzError);
+	});
+
+	it('uses the Emperor proxy when useProxy is true', async () => {
+		let seenUrl: string | null = null;
+		let seenContact: string | null = null;
+		const fetchImpl: typeof fetch = async (input, init) => {
+			seenUrl = String(input);
+			seenContact = new Headers(init?.headers).get(MB_CONTACT_HEADER);
+			return jsonResponse({
+				releases: [{ id: 'rel1', title: 'Album', 'artist-credit': [{ name: 'A' }] }]
+			});
+		};
+
+		const mb = createMusicBrainzClient({ contact, fetch: fetchImpl, useProxy: true });
+		await mb.searchReleases('release:"Album"');
+		expect(seenUrl).toContain('/api/musicbrainz/release?');
+		expect(seenContact).toBe(contact);
 	});
 });
 

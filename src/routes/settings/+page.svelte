@@ -48,6 +48,10 @@
 			localStorage.
 		</p>
 		<p class="text-text-muted max-w-2xl text-base">
+			Lookups and cover downloads go through Emperor’s server proxy so the browser is not blocked by
+			MusicBrainz or Cover Art Archive CORS rules.
+		</p>
+		<p class="text-text-muted max-w-2xl text-base">
 			Keep lookups infrequent (about one request per second). Do not hammer the live service from
 			automated tests — Emperor stubs MusicBrainz and Cover Art Archive in CI.
 		</p>

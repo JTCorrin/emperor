@@ -2,7 +2,6 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import { MEDIA_SERVER_BASE_URL, gotoConnected, waitForAutoConnect } from './helpers';
 
 const baseUrl = MEDIA_SERVER_BASE_URL;
-const CAA = 'https://coverartarchive.org';
 
 const pingFixture = { ok: true as const };
 
@@ -107,47 +106,44 @@ async function stubMediaServer(page: Page) {
 	);
 }
 
-/** Never hit live MusicBrainz / CAA. */
+/** Never hit live MusicBrainz / CAA from the browser — stub Emperor's server proxy. */
 async function stubMusicBrainz(page: Page) {
-	await page.route('https://musicbrainz.org/**', async (route) => {
-		const url = new URL(route.request().url());
-		if (url.pathname.includes('/recording')) {
-			return fulfillJson(route, 200, {
-				recordings: [
-					{
-						id: 'rec-mb',
-						title: 'Corrected Title',
-						'artist-credit': [{ name: 'Corrected Artist' }],
-						releases: [
-							{
-								id: 'rel-mb',
-								title: 'Corrected Album',
-								date: '2020-01-02',
-								media: [{ position: 1, track: [{ position: 4 }] }]
-							}
-						],
-						tags: [{ name: 'indie', count: 3 }]
-					}
-				]
-			});
-		}
-		if (url.pathname.includes('/release')) {
-			return fulfillJson(route, 200, {
-				releases: [
-					{
-						id: 'rel-mb',
-						title: 'Corrected Album',
-						date: '2020',
-						'artist-credit': [{ name: 'Corrected Artist' }],
-						tags: [{ name: 'indie', count: 2 }]
-					}
-				]
-			});
-		}
-		return fulfillJson(route, 404, { error: 'not_found' });
+	await page.route('**/api/musicbrainz/recording**', async (route) => {
+		return fulfillJson(route, 200, {
+			recordings: [
+				{
+					id: 'rec-mb',
+					title: 'Corrected Title',
+					'artist-credit': [{ name: 'Corrected Artist' }],
+					releases: [
+						{
+							id: 'rel-mb',
+							title: 'Corrected Album',
+							date: '2020-01-02',
+							media: [{ position: 1, track: [{ position: 4 }] }]
+						}
+					],
+					tags: [{ name: 'indie', count: 3 }]
+				}
+			]
+		});
 	});
 
-	await page.route(`${CAA}/**`, async (route) => {
+	await page.route('**/api/musicbrainz/release?**', async (route) => {
+		return fulfillJson(route, 200, {
+			releases: [
+				{
+					id: 'rel-mb',
+					title: 'Corrected Album',
+					date: '2020',
+					'artist-credit': [{ name: 'Corrected Artist' }],
+					tags: [{ name: 'indie', count: 2 }]
+				}
+			]
+		});
+	});
+
+	await page.route('**/api/musicbrainz/release/*/front', async (route) => {
 		await route.fulfill({
 			status: 200,
 			contentType: 'image/jpeg',
