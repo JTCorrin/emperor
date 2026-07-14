@@ -23,7 +23,9 @@ if [[ ! -x "${NODE_BIN}" ]]; then
 	exit 1
 fi
 
-pnpm install --prod --frozen-lockfile
+# Ignore lifecycle scripts: prepare runs svelte-kit sync (devDependency), which is
+# not installed under --prod. The CI build already produced build/.
+pnpm install --prod --frozen-lockfile --ignore-scripts
 
 UNIT_SRC="${DEPLOY_PATH}/deploy/emperor.service"
 UNIT_DST="/etc/systemd/system/emperor.service"
