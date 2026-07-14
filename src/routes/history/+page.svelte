@@ -87,6 +87,8 @@
 					<TrackRow
 						title={item.track.title}
 						subtitle={`${item.track.artist} · ${formatPlayed(item.played_unix)}`}
+						coverId={item.track.cover_id}
+						baseUrl={connection.baseUrl}
 						favourite={connection.hasUserDb === true ? favourites.isFavourite(item.track.id) : null}
 						favouritePending={favourites.isPending(item.track.id)}
 						onFavouriteClick={connection.hasUserDb === true

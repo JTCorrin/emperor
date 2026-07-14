@@ -29,6 +29,8 @@ const track = {
 	genre: null,
 	track_number: 1,
 	disc_number: 1,
+	album_id: 7,
+	cover_id: 55,
 	overridden_fields: [] as string[]
 };
 

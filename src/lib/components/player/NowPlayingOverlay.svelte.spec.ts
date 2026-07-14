@@ -22,7 +22,7 @@ describe('NowPlayingOverlay', () => {
 		const player = new PlayerController({
 			getBaseUrl: () => 'http://127.0.0.1:8080'
 		});
-		player.playTracks([trackFixture({ title: 'Alpha' })]);
+		player.playTracks([trackFixture({ title: 'Alpha', artist: 'Beta', cover_id: 73 })]);
 		player.playbackStatus = 'paused';
 		player.expand();
 
@@ -30,6 +30,9 @@ describe('NowPlayingOverlay', () => {
 
 		const close = page.getByRole('button', { name: 'Close' });
 		await expect.element(close).toHaveFocus();
+		await expect
+			.element(page.getByRole('img', { name: 'Cover art for Alpha by Beta' }))
+			.toHaveAttribute('src', 'http://127.0.0.1:8080/cover/73');
 		await expect.element(page.getByRole('button', { name: 'Shuffle off' })).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Repeat off' })).toBeVisible();
 		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));

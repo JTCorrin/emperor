@@ -42,6 +42,8 @@ let track = {
 	genre: null as string | null,
 	track_number: 1,
 	disc_number: 1,
+	album_id: 7 as number | null,
+	cover_id: null as number | null,
 	overridden_fields: [] as string[]
 };
 
@@ -75,10 +77,10 @@ async function stubMediaServer(page: Page) {
 			}
 			if (path === '/api/albums/7/cover' && method === 'PUT') {
 				album = { ...album, cover_id: 55 };
-				return fulfillJson(route, 202, {
+				return fulfillJson(route, 200, {
 					ok: true,
 					path: 'Artist/Album/cover.jpg',
-					scan: 'started'
+					cover_id: 55
 				});
 			}
 			if (path === '/api/albums/7/tracks') {
@@ -190,6 +192,8 @@ test.describe('MusicBrainz settings and lookup', () => {
 			genre: null,
 			track_number: 1,
 			disc_number: 1,
+			album_id: 7,
+			cover_id: null,
 			overridden_fields: []
 		};
 	});
@@ -224,6 +228,10 @@ test.describe('MusicBrainz settings and lookup', () => {
 
 		await page.getByRole('button', { name: 'Apply cover' }).click();
 		await expect(page.getByRole('status')).toContainText(/cover applied/i);
+		await expect(page.getByRole('img', { name: /cover art for browse album/i })).toHaveAttribute(
+			'src',
+			`${baseUrl}/cover/55?v=1`
+		);
 	});
 
 	test('without contact, metadata dialog deep-links to Settings', async ({ page }) => {

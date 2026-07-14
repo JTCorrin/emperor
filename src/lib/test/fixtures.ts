@@ -50,6 +50,8 @@ export function trackFixture(overrides: Partial<Track> = {}): Track {
 		genre: null,
 		track_number: 1,
 		disc_number: 1,
+		album_id: 1,
+		cover_id: null,
 		overridden_fields: [],
 		...overrides
 	};

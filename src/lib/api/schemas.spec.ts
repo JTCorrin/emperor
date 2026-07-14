@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	albumMetadataFormSchema,
 	albumMetadataPatchSchema,
+	albumCoverUploadResponseSchema,
 	albumPatchResponseSchema,
 	albumPageSchema,
 	albumSchema,
@@ -45,12 +46,14 @@ describe('API schemas', () => {
 	});
 
 	it('accepts track and track page envelopes', () => {
-		const track = trackFixture({ id: 7, title: 'Hello' });
+		const track = trackFixture({ id: 7, title: 'Hello', album_id: 4, cover_id: 9 });
 		expect(trackSchema.parse(track)).toEqual(track);
 		expect(trackPageSchema.parse(trackPageFixture([track]))).toMatchObject({
 			total: 1,
 			items: [track]
 		});
+		expect(trackSchema.safeParse({ ...track, album_id: undefined }).success).toBe(false);
+		expect(trackSchema.safeParse({ ...track, cover_id: undefined }).success).toBe(false);
 	});
 
 	it('accepts playlist and history items', () => {
@@ -109,6 +112,13 @@ describe('API schemas', () => {
 		expect(albumPatchResponseSchema.parse({ updated_track_count: 4 })).toEqual({
 			updated_track_count: 4
 		});
+		expect(
+			albumCoverUploadResponseSchema.parse({
+				ok: true,
+				path: 'Artist/Album/cover.jpg',
+				cover_id: 12
+			})
+		).toEqual({ ok: true, path: 'Artist/Album/cover.jpg', cover_id: 12 });
 		expect(trackMetadataPatchSchema.safeParse({ release_date: '13-2024' }).success).toBe(false);
 		for (const release_date of ['2024', '2024-03', '2024-03-02']) {
 			expect(trackMetadataPatchSchema.safeParse({ release_date }).success).toBe(true);

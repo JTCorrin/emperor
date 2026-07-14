@@ -23,4 +23,17 @@ describe('CoverArt', () => {
 			.element(page.getByRole('img', { name: 'Cover art for Album Name by Artist Name' }))
 			.toBeVisible();
 	});
+
+	it('adds a targeted revision only after a cover write', async () => {
+		render(CoverArt, {
+			title: 'Album Name',
+			coverId: 7,
+			coverRevision: 2,
+			baseUrl: 'http://127.0.0.1:8080'
+		});
+
+		await expect
+			.element(page.getByRole('img'))
+			.toHaveAttribute('src', 'http://127.0.0.1:8080/cover/7?v=2');
+	});
 });

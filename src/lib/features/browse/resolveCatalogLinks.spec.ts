@@ -1,10 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { albumFixture, artistFixture, searchResponseFixture } from '$lib/test/fixtures';
 import {
-	albumCoverCacheKey,
 	catalogLinkHref,
-	clearAlbumCoverCache,
-	resolveAlbumCoverId,
 	resolveAlbumFromSearch,
 	resolveAlbumLink,
 	resolveArtistFromSearch,
@@ -73,31 +70,5 @@ describe('resolveCatalogLinks', () => {
 			kind: 'album',
 			id: 4
 		});
-	});
-
-	it('resolves and caches album cover ids from search', async () => {
-		clearAlbumCoverCache();
-		const response = searchResponseFixture({
-			albums: {
-				items: [
-					albumFixture({
-						id: 4,
-						name: 'Exact LP',
-						artist: 'Exact',
-						cover_id: 99
-					})
-				],
-				total: 1,
-				limit: 50,
-				offset: 0
-			}
-		});
-		const search = vi.fn().mockResolvedValue(response);
-		const client = { search };
-
-		await expect(resolveAlbumCoverId(client, 'Exact LP', 'Exact')).resolves.toBe(99);
-		await expect(resolveAlbumCoverId(client, 'Exact LP', 'Exact')).resolves.toBe(99);
-		expect(search).toHaveBeenCalledTimes(1);
-		expect(albumCoverCacheKey('Exact LP', 'Exact')).toBe('exact|exact lp');
 	});
 });

@@ -5,6 +5,8 @@
 		title: string;
 		artist?: string;
 		coverId?: number | null;
+		/** Changes only after a cover write, preserving normal browser caching otherwise. */
+		coverRevision?: number;
 		baseUrl?: string | null;
 		size?: 'sm' | 'md' | 'lg' | 'card';
 		class?: string;
@@ -14,6 +16,7 @@
 		title,
 		artist = '',
 		coverId = null,
+		coverRevision = 0,
 		baseUrl = null,
 		size = 'md',
 		class: className = ''
@@ -27,7 +30,8 @@
 	const src = $derived.by(() => {
 		if (!baseUrl || coverId == null) return null;
 		try {
-			return coverUrl(baseUrl, coverId);
+			const url = coverUrl(baseUrl, coverId);
+			return coverRevision > 0 ? `${url}?v=${coverRevision}` : url;
 		} catch {
 			return null;
 		}

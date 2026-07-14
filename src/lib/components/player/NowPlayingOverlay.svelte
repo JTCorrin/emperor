@@ -3,7 +3,6 @@
 	import { createMediaServerClient } from '$lib/api';
 	import {
 		gotoCatalogLink,
-		resolveAlbumCoverId,
 		resolveAlbumFromSearch,
 		resolveArtistFromSearch
 	} from '$lib/features/browse/resolveCatalogLinks';
@@ -23,9 +22,9 @@
 	const canPrevious = $derived(player.canGoPrevious);
 	const canNext = $derived(player.canGoNext);
 	const showAdd = $derived(hasUserDb === true && onAddToPlaylist != null);
+	const coverId = $derived(track?.cover_id ?? null);
 
 	let linkPending = $state(false);
-	let coverId = $state<number | null>(null);
 	let menuOpen = $state(false);
 
 	function repeatLabel(mode: typeof player.repeat): string {
@@ -98,8 +97,14 @@
 		if (!track || !baseUrl || linkPending) return;
 		linkPending = true;
 		try {
-			const client = createMediaServerClient({ baseUrl });
-			const target = await resolveAlbumFromSearch(client, track.album, track.artist);
+			const target =
+				track.album_id != null
+					? { kind: 'album' as const, id: track.album_id }
+					: await resolveAlbumFromSearch(
+							createMediaServerClient({ baseUrl }),
+							track.album,
+							track.artist
+						);
 			player.collapse();
 			await gotoCatalogLink(target);
 		} finally {
@@ -111,27 +116,6 @@
 		menuOpen = false;
 		onAddToPlaylist?.();
 	}
-
-	$effect(() => {
-		const current = track;
-		const url = baseUrl;
-		coverId = null;
-		menuOpen = false;
-		if (!current || !url) return;
-
-		const abort = new AbortController();
-		void (async () => {
-			try {
-				const client = createMediaServerClient({ baseUrl: url });
-				const id = await resolveAlbumCoverId(client, current.album, current.artist, abort.signal);
-				if (!abort.signal.aborted) coverId = id;
-			} catch {
-				if (!abort.signal.aborted) coverId = null;
-			}
-		})();
-
-		return () => abort.abort();
-	});
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />

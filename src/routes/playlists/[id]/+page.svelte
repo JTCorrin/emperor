@@ -427,6 +427,8 @@
 							<TrackRow
 								title={track.title}
 								subtitle={`${track.artist} · ${track.album}`}
+								coverId={track.cover_id}
+								baseUrl={connection.baseUrl}
 								favourite={connection.hasUserDb === true ? favourites.isFavourite(track.id) : null}
 								favouritePending={favourites.isPending(track.id)}
 								onFavouriteClick={connection.hasUserDb === true

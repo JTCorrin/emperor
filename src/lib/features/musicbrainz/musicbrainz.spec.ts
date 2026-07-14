@@ -22,12 +22,8 @@ import {
 } from './client';
 import { lookupAlbumMetadata, lookupTrackMetadata } from './lookup';
 import { applyAlbumCoverFromMusicBrainz } from './applyCover';
-import {
-	albumFixture,
-	createFetchStub,
-	jsonResponse,
-	libraryStatusFixture
-} from '$lib/test/fixtures';
+import { MediaServerRequestError } from '$lib/api';
+import { albumFixture, createFetchStub, jsonResponse } from '$lib/test/fixtures';
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
 	const map = new Map(Object.entries(initial));
@@ -221,10 +217,9 @@ describe('musicbrainz lookup helpers', () => {
 });
 
 describe('applyAlbumCoverFromMusicBrainz', () => {
-	it('uploads cover, waits for scan idle, refetches album', async () => {
-		const album = albumFixture({ id: 7, cover_id: 99 });
+	it('uses the upload cover id without polling or refetching', async () => {
+		const album = albumFixture({ id: 7, cover_id: null });
 		let uploads = 0;
-		let statusCalls = 0;
 		const result = await applyAlbumCoverFromMusicBrainz({
 			mb: {
 				fetchFrontCover: async () => ({
@@ -235,22 +230,42 @@ describe('applyAlbumCoverFromMusicBrainz', () => {
 			media: {
 				uploadAlbumCover: async () => {
 					uploads += 1;
-					return { ok: true as const, path: 'cover.png', scan: 'started' };
-				},
-				getLibraryStatus: async () => {
-					statusCalls += 1;
-					return libraryStatusFixture({ scanning: statusCalls < 2 });
-				},
-				getAlbum: async () => album
+					return { ok: true as const, path: 'cover.png', cover_id: 99 };
+				}
 			},
-			albumId: 7,
-			releaseMbid: 'rel-1',
-			pollIntervalMs: 1,
-			sleep: async () => undefined
+			album,
+			releaseMbid: 'rel-1'
 		});
 
-		expect(result).toEqual({ kind: 'ok', album });
+		expect(result).toEqual({ kind: 'ok', album: { ...album, cover_id: 99 } });
 		expect(uploads).toBe(1);
-		expect(statusCalls).toBeGreaterThanOrEqual(2);
+	});
+
+	it('explains an ambiguous album directory', async () => {
+		const result = await applyAlbumCoverFromMusicBrainz({
+			mb: {
+				fetchFrontCover: async () => ({
+					blob: new Blob(),
+					contentType: 'image/jpeg'
+				})
+			},
+			media: {
+				uploadAlbumCover: async () => {
+					throw new MediaServerRequestError({
+						kind: 'http',
+						message: 'Request failed: ambiguous_album_dir',
+						status: 400,
+						code: 'ambiguous_album_dir'
+					});
+				}
+			},
+			album: albumFixture({ id: 7 }),
+			releaseMbid: 'rel-1'
+		});
+
+		expect(result).toMatchObject({
+			kind: 'error',
+			message: expect.stringMatching(/multiple folders/i)
+		});
 	});
 });

@@ -11,7 +11,10 @@ describe('CompactPlayer', () => {
 			getBaseUrl: () => 'http://127.0.0.1:8080'
 		});
 		player.playTracks(
-			[trackFixture({ id: 1, title: 'Alpha', artist: 'Beta' }), trackFixture({ id: 2 })],
+			[
+				trackFixture({ id: 1, title: 'Alpha', artist: 'Beta', cover_id: 73 }),
+				trackFixture({ id: 2 })
+			],
 			0
 		);
 		player.playbackStatus = 'paused';
@@ -24,6 +27,9 @@ describe('CompactPlayer', () => {
 
 		await expect.element(page.getByText('Alpha')).toBeVisible();
 		await expect.element(page.getByText('Beta')).toBeVisible();
+		await expect
+			.element(page.getByRole('img', { name: 'Cover art for Alpha by Beta' }))
+			.toHaveAttribute('src', 'http://127.0.0.1:8080/cover/73');
 
 		await page.getByRole('button', { name: 'Play', exact: true }).click();
 		expect(toggle).toHaveBeenCalled();

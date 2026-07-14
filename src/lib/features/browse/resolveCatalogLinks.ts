@@ -62,50 +62,6 @@ export async function resolveAlbumFromSearch(
 	return resolveAlbumLink(response.albums.items, albumName, artistName);
 }
 
-const albumCoverCache = new Map<string, number | null>();
-
-export function albumCoverCacheKey(albumName: string, artistName: string): string {
-	return `${normalizeName(artistName)}|${normalizeName(albumName)}`;
-}
-
-export function clearAlbumCoverCache(): void {
-	albumCoverCache.clear();
-}
-
-/**
- * Resolve an album cover_id for a track's artist+album strings via search.
- * Results are cached (including null misses) for the session.
- */
-export async function resolveAlbumCoverId(
-	client: Pick<MediaServerClient, 'search'>,
-	albumName: string,
-	artistName: string,
-	signal?: AbortSignal
-): Promise<number | null> {
-	const key = albumCoverCacheKey(albumName, artistName);
-	if (albumCoverCache.has(key)) {
-		return albumCoverCache.get(key) ?? null;
-	}
-
-	const q = albumName.trim() || artistName.trim();
-	if (!q) {
-		albumCoverCache.set(key, null);
-		return null;
-	}
-
-	const response: SearchResponse = await client.search({ q, limit: 50, signal });
-	const target = resolveAlbumLink(response.albums.items, albumName, artistName);
-	if (target.kind !== 'album') {
-		albumCoverCache.set(key, null);
-		return null;
-	}
-
-	const album = response.albums.items.find((item) => item.id === target.id);
-	const coverId = album?.cover_id ?? null;
-	albumCoverCache.set(key, coverId);
-	return coverId;
-}
-
 export function catalogLinkHref(target: CatalogLinkTarget): string {
 	switch (target.kind) {
 		case 'artist':

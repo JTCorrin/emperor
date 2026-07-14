@@ -79,6 +79,8 @@
 						title={track.title}
 						subtitle={`${track.artist} · ${track.album}`}
 						trackNumber={track.track_number}
+						coverId={track.cover_id}
+						baseUrl={connection.baseUrl}
 						status={track.overridden_fields.length
 							? `Overridden: ${track.overridden_fields.join(', ')}`
 							: ''}

@@ -60,6 +60,7 @@
 					<MediaCard
 						title={track.title}
 						subtitle={track.artist}
+						coverId={track.cover_id}
 						baseUrl={connection.baseUrl}
 						onclick={() => player.playTracks(home.shelves.discover.items, index)}
 					/>
@@ -77,6 +78,7 @@
 					<MediaCard
 						title={track.title}
 						subtitle={track.artist}
+						coverId={track.cover_id}
 						baseUrl={connection.baseUrl}
 						onclick={() => player.playTracks(home.shelves.recent.items, index)}
 					/>
@@ -97,6 +99,7 @@
 					<MediaCard
 						title={track.title}
 						subtitle={track.artist}
+						coverId={track.cover_id}
 						baseUrl={connection.baseUrl}
 						onclick={() => player.playTracks(home.shelves.recentlyPlayed.items, index)}
 					/>
@@ -133,6 +136,7 @@
 					<MediaCard
 						title={track.title}
 						subtitle={track.artist}
+						coverId={track.cover_id}
 						baseUrl={connection.baseUrl}
 						onclick={() => player.playTracks(home.shelves.favourites.items, index)}
 					/>

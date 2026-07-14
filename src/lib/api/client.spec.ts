@@ -299,8 +299,8 @@ describe('createMediaServerClient', () => {
 					bodyBytes = await body.arrayBuffer();
 				}
 				return jsonResponse(
-					{ ok: true, path: 'Artist/Album/cover.jpg', scan: 'started' },
-					{ status: 202 }
+					{ ok: true, path: 'Artist/Album/cover.jpg', cover_id: 51 },
+					{ status: 200 }
 				);
 			}
 		});
@@ -310,7 +310,7 @@ describe('createMediaServerClient', () => {
 		).resolves.toEqual({
 			ok: true,
 			path: 'Artist/Album/cover.jpg',
-			scan: 'started'
+			cover_id: 51
 		});
 		expect(contentType).toBe('image/jpeg');
 		expect(bodyBytes).toEqual(bytes.buffer);

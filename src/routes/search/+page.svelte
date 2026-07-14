@@ -107,6 +107,8 @@
 							<TrackRow
 								title={track.title}
 								subtitle={`${track.artist} · ${track.album}`}
+								coverId={track.cover_id}
+								baseUrl={connection.baseUrl}
 								onAddToPlaylist={connection.hasUserDb === true
 									? () => addToPlaylist.open(track)
 									: undefined}

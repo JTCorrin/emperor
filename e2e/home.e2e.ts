@@ -29,6 +29,8 @@ const track = {
 	genre: null,
 	track_number: 1,
 	disc_number: 1,
+	album_id: 1,
+	cover_id: 55,
 	overridden_fields: [] as string[]
 };
 
@@ -86,6 +88,9 @@ test.describe('home shelves', () => {
 		await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Discover' })).toBeVisible({ timeout: 15_000 });
 		await expect(page.getByRole('button', { name: /Shelf Track/ }).first()).toBeVisible();
+		await expect(
+			page.getByRole('img', { name: /Cover art for Shelf Track/ }).first()
+		).toHaveAttribute('src', `${baseUrl}/cover/55`);
 		await expect(
 			page.getByText('Recently played needs a media-server user database.')
 		).toBeVisible();

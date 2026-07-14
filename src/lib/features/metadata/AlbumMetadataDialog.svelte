@@ -136,7 +136,7 @@
 			const result = await applyAlbumCoverFromMusicBrainz({
 				mb,
 				media,
-				albumId: album.id,
+				album,
 				releaseMbid: mbid
 			});
 			if (result.kind === 'error') {

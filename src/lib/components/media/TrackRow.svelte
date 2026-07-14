@@ -6,6 +6,7 @@
 		subtitle?: string;
 		trackNumber?: number | null;
 		coverId?: number | null;
+		coverRevision?: number;
 		baseUrl?: string | null;
 		favourite?: boolean | null;
 		favouritePending?: boolean;
@@ -21,6 +22,7 @@
 		subtitle = '',
 		trackNumber = null,
 		coverId = null,
+		coverRevision = 0,
 		baseUrl = null,
 		favourite = null,
 		favouritePending = false,
@@ -42,7 +44,7 @@
 	>
 		{#if coverId != null}
 			<span class="shrink-0">
-				<CoverArt {title} artist={subtitle} {coverId} {baseUrl} size="sm" />
+				<CoverArt {title} artist={subtitle} {coverId} {coverRevision} {baseUrl} size="sm" />
 			</span>
 		{:else if trackNumber != null}
 			<span class="text-text-muted w-8 shrink-0 text-center text-base tabular-nums"

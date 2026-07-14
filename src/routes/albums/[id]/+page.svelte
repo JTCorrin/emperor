@@ -58,6 +58,7 @@
 	let albumToken = 0;
 	let editingTrack = $state.raw<Track | null>(null);
 	let editingAlbum = $state.raw<Album | null>(null);
+	let coverRevision = $state(0);
 
 	const tracks = new PaginatedListController<Track>({
 		getBaseUrl: () => connection.baseUrl,
@@ -197,6 +198,7 @@
 					title={album.name}
 					artist={album.artist}
 					coverId={album.cover_id}
+					{coverRevision}
 					baseUrl={connection.baseUrl}
 					size="card"
 				/>
@@ -260,6 +262,7 @@
 							subtitle={track.artist}
 							trackNumber={track.track_number}
 							coverId={album.cover_id}
+							{coverRevision}
 							baseUrl={connection.baseUrl}
 							status={overrideStatus(track)}
 							onAddToPlaylist={connection.hasUserDb === true
@@ -301,6 +304,7 @@
 		// Update page album only — replacing editingAlbum remounts the dialog
 		// attachment and closes it before the cover status is observable.
 		album = next;
+		coverRevision += 1;
 	}}
 	onclose={() => {
 		editingAlbum = null;

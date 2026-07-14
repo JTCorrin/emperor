@@ -61,6 +61,8 @@ export const trackSchema = z.object({
 	genre: serverString.nullable(),
 	track_number: z.number().int().nullable(),
 	disc_number: z.number().int().nullable(),
+	album_id: z.number().int().positive().nullable(),
+	cover_id: z.number().int().positive().nullable(),
 	overridden_fields: z.array(z.string().max(100)).max(32)
 });
 
@@ -151,11 +153,11 @@ export const albumPatchResponseSchema = z.object({
 	updated_track_count: z.number().int().nonnegative()
 });
 
-/** Response from PUT /api/albums/:id/cover (202). */
+/** Response from PUT /api/albums/:id/cover (200). */
 export const albumCoverUploadResponseSchema = z.object({
 	ok: z.literal(true),
 	path: z.string(),
-	scan: z.string()
+	cover_id: z.number().int().positive()
 });
 
 /** Form-facing track edit values (strings for inputs). */
