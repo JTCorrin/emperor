@@ -28,6 +28,17 @@ describe('TrackRow', () => {
 		await page.getByRole('button', { name: 'Edit Song Title' }).click();
 		expect(onEditClick).toHaveBeenCalled();
 	});
+
+	it('activates the add-to-playlist handler', async () => {
+		const onAddToPlaylist = vi.fn();
+		render(TrackRow, {
+			title: 'Song Title',
+			onAddToPlaylist
+		});
+
+		await page.getByRole('button', { name: 'Add Song Title to playlist' }).click();
+		expect(onAddToPlaylist).toHaveBeenCalled();
+	});
 });
 
 describe('MediaGrid', () => {

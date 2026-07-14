@@ -6,11 +6,12 @@
 	import TrackRow from '$lib/components/media/TrackRow.svelte';
 	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
 	import { PaginatedListController } from '$lib/features/browse/paginatedList.svelte';
-	import { getConnection, getFavourites, getPlayer } from '$lib/state/context';
+	import { getAddToPlaylist, getConnection, getFavourites, getPlayer } from '$lib/state/context';
 
 	const connection = getConnection();
 	const player = getPlayer();
 	const favourites = getFavourites();
+	const addToPlaylist = getAddToPlaylist();
 
 	const list = new PaginatedListController<HistoryItem>({
 		getBaseUrl: () => connection.baseUrl,
@@ -90,6 +91,9 @@
 						favouritePending={favourites.isPending(item.track.id)}
 						onFavouriteClick={connection.hasUserDb === true
 							? () => favourites.toggle(item.track)
+							: undefined}
+						onAddToPlaylist={connection.hasUserDb === true
+							? () => addToPlaylist.open(item.track)
 							: undefined}
 						onclick={() =>
 							player.playTracks(

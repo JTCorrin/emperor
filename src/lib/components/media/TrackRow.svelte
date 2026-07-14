@@ -1,13 +1,18 @@
 <script lang="ts">
+	import CoverArt from '$lib/components/media/CoverArt.svelte';
+
 	interface Props {
 		title: string;
 		subtitle?: string;
 		trackNumber?: number | null;
+		coverId?: number | null;
+		baseUrl?: string | null;
 		favourite?: boolean | null;
 		favouritePending?: boolean;
 		onFavouriteClick?: () => void;
 		status?: string;
 		onEditClick?: () => void;
+		onAddToPlaylist?: () => void;
 		onclick?: () => void;
 	}
 
@@ -15,11 +20,14 @@
 		title,
 		subtitle = '',
 		trackNumber = null,
+		coverId = null,
+		baseUrl = null,
 		favourite = null,
 		favouritePending = false,
 		onFavouriteClick,
 		status = '',
 		onEditClick,
+		onAddToPlaylist,
 		onclick
 	}: Props = $props();
 </script>
@@ -32,7 +40,11 @@
 		class="hover:border-accent focus-visible:border-accent flex min-h-touch min-w-0 flex-1 items-center gap-4 rounded-card border border-transparent px-2 py-1 text-left"
 		{onclick}
 	>
-		{#if trackNumber != null}
+		{#if coverId != null}
+			<span class="shrink-0">
+				<CoverArt {title} artist={subtitle} {coverId} {baseUrl} size="sm" />
+			</span>
+		{:else if trackNumber != null}
 			<span class="text-text-muted w-8 shrink-0 text-center text-base tabular-nums"
 				>{trackNumber}</span
 			>
@@ -47,6 +59,19 @@
 			{/if}
 		</span>
 	</button>
+	{#if onAddToPlaylist}
+		<button
+			type="button"
+			class="border-border bg-surface-muted hover:border-accent min-h-touch min-w-touch shrink-0 rounded-card border text-sm font-semibold"
+			aria-label={`Add ${title} to playlist`}
+			onclick={(event) => {
+				event.stopPropagation();
+				onAddToPlaylist();
+			}}
+		>
+			Add
+		</button>
+	{/if}
 	{#if onEditClick}
 		<button
 			type="button"

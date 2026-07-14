@@ -18,10 +18,11 @@
 	import { sortAlbumTracks } from '$lib/features/browse/albumTracks';
 	import { PaginatedListController } from '$lib/features/browse/paginatedList.svelte';
 	import { refetchAlbumAfterPatch } from '$lib/features/metadata/albumRegroup';
-	import { getConnection, getPlayer } from '$lib/state/context';
+	import { getAddToPlaylist, getConnection, getPlayer } from '$lib/state/context';
 
 	const connection = getConnection();
 	const player = getPlayer();
+	const addToPlaylist = getAddToPlaylist();
 
 	const albumId = $derived(Number(page.params.id));
 
@@ -232,7 +233,12 @@
 							title={track.title}
 							subtitle={track.artist}
 							trackNumber={track.track_number}
+							coverId={album.cover_id}
+							baseUrl={connection.baseUrl}
 							status={overrideStatus(track)}
+							onAddToPlaylist={connection.hasUserDb === true
+								? () => addToPlaylist.open(track)
+								: undefined}
 							onEditClick={() => {
 								editingTrack = track;
 							}}

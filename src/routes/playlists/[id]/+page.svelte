@@ -16,11 +16,12 @@
 	import TrackRow from '$lib/components/media/TrackRow.svelte';
 	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
 	import { loadAllPages } from '$lib/features/browse/loadAllPages';
-	import { getConnection, getFavourites, getPlayer } from '$lib/state/context';
+	import { getAddToPlaylist, getConnection, getFavourites, getPlayer } from '$lib/state/context';
 
 	const connection = getConnection();
 	const player = getPlayer();
 	const favourites = getFavourites();
+	const addToPlaylist = getAddToPlaylist();
 	const playlistId = $derived(Number(page.params.id));
 
 	let playlist = $state.raw<Playlist | null>(null);
@@ -404,6 +405,9 @@
 								favouritePending={favourites.isPending(track.id)}
 								onFavouriteClick={connection.hasUserDb === true
 									? () => favourites.toggle(track)
+									: undefined}
+								onAddToPlaylist={connection.hasUserDb === true
+									? () => addToPlaylist.open(track)
 									: undefined}
 								onclick={() => player.playTracks(editing ? draftTracks : tracks, index)}
 							/>

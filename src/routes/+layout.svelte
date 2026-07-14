@@ -10,8 +10,10 @@
 	import TabBar from '$lib/components/ui/TabBar.svelte';
 	import { getMediaServerBaseUrl } from '$lib/config';
 	import { FavouritesController } from '$lib/features/favourites/favourites.svelte';
+	import { AddToPlaylistController } from '$lib/features/playlists/addToPlaylist.svelte';
+	import AddToPlaylistDialog from '$lib/features/playlists/AddToPlaylistDialog.svelte';
 	import { ConnectionController } from '$lib/state/connection.svelte';
-	import { setConnection, setFavourites, setPlayer } from '$lib/state/context';
+	import { setAddToPlaylist, setConnection, setFavourites, setPlayer } from '$lib/state/context';
 	import { PlayerController } from '$lib/state/player.svelte';
 
 	let { children } = $props();
@@ -24,9 +26,11 @@
 		getBaseUrl: () => connection.baseUrl,
 		getHasUserDb: () => connection.hasUserDb
 	});
+	const addToPlaylist = new AddToPlaylistController();
 	setConnection(connection);
 	setPlayer(player);
 	setFavourites(favourites);
+	setAddToPlaylist(addToPlaylist);
 
 	onMount(() => {
 		void connection.connect(getMediaServerBaseUrl());
@@ -78,7 +82,18 @@
 	</main>
 
 	<audio {@attach attachAudio} preload="metadata" class="hidden"></audio>
-	<NowPlayingOverlay {player} baseUrl={connection.baseUrl} />
+	<NowPlayingOverlay
+		{player}
+		baseUrl={connection.baseUrl}
+		hasUserDb={connection.hasUserDb}
+		onAddToPlaylist={connection.hasUserDb === true
+			? () => {
+					const track = player.currentTrack;
+					if (track) addToPlaylist.open(track);
+				}
+			: undefined}
+	/>
+	<AddToPlaylistDialog track={addToPlaylist.track} onclose={() => addToPlaylist.close()} />
 	<div
 		class="fixed inset-x-0 bottom-0 z-10 pr-[var(--spacing-safe-right)] pb-[var(--spacing-safe-bottom)] pl-[var(--spacing-safe-left)]"
 	>

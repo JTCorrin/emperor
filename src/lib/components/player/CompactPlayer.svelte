@@ -4,6 +4,7 @@
 	import type { FavouritesController } from '$lib/features/favourites/favourites.svelte';
 	import {
 		gotoCatalogLink,
+		resolveAlbumCoverId,
 		resolveAlbumFromSearch,
 		resolveArtistFromSearch
 	} from '$lib/features/browse/resolveCatalogLinks';
@@ -26,6 +27,7 @@
 	const isFavourite = $derived(track && favourites ? favourites.isFavourite(track.id) : false);
 
 	let linkPending = $state(false);
+	let coverId = $state<number | null>(null);
 
 	function formatTime(seconds: number): string {
 		if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -58,6 +60,26 @@
 			linkPending = false;
 		}
 	}
+
+	$effect(() => {
+		const current = track;
+		const url = baseUrl;
+		coverId = null;
+		if (!current || !url) return;
+
+		const abort = new AbortController();
+		void (async () => {
+			try {
+				const client = createMediaServerClient({ baseUrl: url });
+				const id = await resolveAlbumCoverId(client, current.album, current.artist, abort.signal);
+				if (!abort.signal.aborted) coverId = id;
+			} catch {
+				if (!abort.signal.aborted) coverId = null;
+			}
+		})();
+
+		return () => abort.abort();
+	});
 </script>
 
 {#if track}
@@ -73,7 +95,7 @@
 					aria-label={`Expand player: ${track.title}`}
 					onclick={() => player.expand()}
 				>
-					<CoverArt title={track.title} artist={track.artist} {baseUrl} size="sm" />
+					<CoverArt title={track.title} artist={track.artist} {coverId} {baseUrl} size="sm" />
 					<span class="block min-w-0 truncate text-base font-semibold">{track.title}</span>
 				</button>
 

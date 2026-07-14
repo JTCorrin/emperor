@@ -8,10 +8,11 @@
 	import TrackRow from '$lib/components/media/TrackRow.svelte';
 	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
 	import { SearchResultsController } from '$lib/features/search/searchResults.svelte';
-	import { getConnection, getPlayer } from '$lib/state/context';
+	import { getAddToPlaylist, getConnection, getPlayer } from '$lib/state/context';
 
 	const connection = getConnection();
 	const player = getPlayer();
+	const addToPlaylist = getAddToPlaylist();
 	const search = new SearchResultsController({
 		getBaseUrl: () => connection.baseUrl
 	});
@@ -106,6 +107,9 @@
 							<TrackRow
 								title={track.title}
 								subtitle={`${track.artist} · ${track.album}`}
+								onAddToPlaylist={connection.hasUserDb === true
+									? () => addToPlaylist.open(track)
+									: undefined}
 								onclick={() => player.playTracks(search.state.tracks.items, index)}
 							/>
 						</li>

@@ -3,6 +3,7 @@
 	import { createMediaServerClient } from '$lib/api';
 	import {
 		gotoCatalogLink,
+		resolveAlbumCoverId,
 		resolveAlbumFromSearch,
 		resolveArtistFromSearch
 	} from '$lib/features/browse/resolveCatalogLinks';
@@ -11,20 +12,29 @@
 	interface Props {
 		player: PlayerController;
 		baseUrl?: string | null;
+		hasUserDb?: boolean | null;
+		onAddToPlaylist?: () => void;
 	}
 
-	let { player, baseUrl = null }: Props = $props();
+	let { player, baseUrl = null, hasUserDb = null, onAddToPlaylist }: Props = $props();
 
 	const track = $derived(player.currentTrack);
 	const progressMax = $derived(player.duration > 0 ? player.duration : 1);
 	const canPrevious = $derived(player.index > 0);
 	const canNext = $derived(player.index >= 0 && player.index < player.queue.length - 1);
+	const showAdd = $derived(hasUserDb === true && onAddToPlaylist != null);
 
 	let linkPending = $state(false);
+	let coverId = $state<number | null>(null);
+	let menuOpen = $state(false);
 
 	function onWindowKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape' && player.expanded) {
 			event.preventDefault();
+			if (menuOpen) {
+				menuOpen = false;
+				return;
+			}
 			player.collapse();
 		}
 	}
@@ -90,6 +100,32 @@
 			linkPending = false;
 		}
 	}
+
+	function addToPlaylist() {
+		menuOpen = false;
+		onAddToPlaylist?.();
+	}
+
+	$effect(() => {
+		const current = track;
+		const url = baseUrl;
+		coverId = null;
+		menuOpen = false;
+		if (!current || !url) return;
+
+		const abort = new AbortController();
+		void (async () => {
+			try {
+				const client = createMediaServerClient({ baseUrl: url });
+				const id = await resolveAlbumCoverId(client, current.album, current.artist, abort.signal);
+				if (!abort.signal.aborted) coverId = id;
+			} catch {
+				if (!abort.signal.aborted) coverId = null;
+			}
+		})();
+
+		return () => abort.abort();
+	});
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />
@@ -107,17 +143,50 @@
 			tabindex="-1"
 			onkeydown={trapFocus}
 		>
-			<button
-				type="button"
-				class="border-border bg-surface-muted absolute top-4 right-4 min-h-touch min-w-touch rounded-card border text-base font-medium"
-				onclick={() => player.collapse()}
-				{@attach focusCloseOnOpen}
-			>
-				Close
-			</button>
+			<div class="absolute top-4 right-4 flex gap-2">
+				{#if showAdd}
+					<div class="relative">
+						<button
+							type="button"
+							class="border-border bg-surface-muted min-h-touch min-w-touch rounded-card border text-base font-medium"
+							aria-label="More actions"
+							aria-expanded={menuOpen}
+							aria-haspopup="menu"
+							onclick={() => {
+								menuOpen = !menuOpen;
+							}}
+						>
+							⋮
+						</button>
+						{#if menuOpen}
+							<div
+								class="border-border bg-surface-raised absolute top-full right-0 z-10 mt-2 min-w-48 rounded-card border p-2 shadow-xl"
+								role="menu"
+							>
+								<button
+									type="button"
+									class="hover:bg-surface-muted min-h-touch w-full rounded-card px-3 text-left text-base font-semibold"
+									role="menuitem"
+									onclick={addToPlaylist}
+								>
+									Add to playlist
+								</button>
+							</div>
+						{/if}
+					</div>
+				{/if}
+				<button
+					type="button"
+					class="border-border bg-surface-muted min-h-touch min-w-touch rounded-card border text-base font-medium"
+					onclick={() => player.collapse()}
+					{@attach focusCloseOnOpen}
+				>
+					Close
+				</button>
+			</div>
 
 			<div class="mt-8 flex flex-col items-center gap-4 text-center">
-				<CoverArt title={track.title} artist={track.artist} {baseUrl} size="lg" />
+				<CoverArt title={track.title} artist={track.artist} {coverId} {baseUrl} size="lg" />
 				<div class="flex flex-col items-center gap-2">
 					<h2 id="now-playing-title" class="text-2xl font-semibold">{track.title}</h2>
 					<button

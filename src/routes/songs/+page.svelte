@@ -6,12 +6,13 @@
 	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
 	import TrackMetadataDialog from '$lib/features/metadata/TrackMetadataDialog.svelte';
 	import { PaginatedListController } from '$lib/features/browse/paginatedList.svelte';
-	import { getConnection, getFavourites, getPlayer } from '$lib/state/context';
+	import { getAddToPlaylist, getConnection, getFavourites, getPlayer } from '$lib/state/context';
 	import type { Track } from '$lib/api';
 
 	const connection = getConnection();
 	const player = getPlayer();
 	const favourites = getFavourites();
+	const addToPlaylist = getAddToPlaylist();
 
 	let editingTrack = $state.raw<Track | null>(null);
 
@@ -85,6 +86,9 @@
 						favouritePending={favourites.isPending(track.id)}
 						onFavouriteClick={connection.hasUserDb === true
 							? () => favourites.toggle(track)
+							: undefined}
+						onAddToPlaylist={connection.hasUserDb === true
+							? () => addToPlaylist.open(track)
 							: undefined}
 						onEditClick={() => {
 							editingTrack = track;
