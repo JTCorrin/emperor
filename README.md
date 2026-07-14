@@ -1,42 +1,72 @@
-# sv
+# Emperor
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A SvelteKit web client for **media-server** — browse your library, search, stream audio, and manage playlists against a LAN-hosted HTTP API.
 
-## Creating a project
+![Home screen with discovery shelves](docs/screenshots/home.png)
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Features
 
-```sh
-# create a new project
-npx sv create my-app
-```
+- **Home shelves** — discover, recently added, recently played, playlists, and favourites
+- **Browse** — artists, albums, and the full track list with cover art
+- **Search** — tracks, artists, and albums (optional fuzzy matching)
+- **Playback** — queue, shuffle/repeat, compact bar, and expanded now-playing overlay
+- **User library** — playlists, favourites, and play history (when the server runs with `--user-db`)
+- **Metadata** — edit track/album tags in the catalog; optional MusicBrainz lookup and cover apply
 
-To recreate this project with the same configuration:
+Emperor auto-connects on load to `PUBLIC_MEDIA_SERVER_URL` (or a documented LAN default). See [AGENTS.md](./AGENTS.md) for the full media-server API contract.
 
-```sh
-# recreate this project
-pnpm dlx sv@0.16.3 create --template minimal --types ts --add prettier eslint vitest="usages:unit,component" playwright tailwindcss="plugins:typography,forms" sveltekit-adapter="adapter:node" --install pnpm emperor
-```
+## Requirements
 
-## Developing
+- [Node.js](https://nodejs.org/) 22+
+- [pnpm](https://pnpm.io/)
+- A running **media-server** instance reachable from the browser
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
+## Quick start
 
 ```sh
-npm run build
+pnpm install
+cp .env.example .env   # set PUBLIC_MEDIA_SERVER_URL to your server
+pnpm dev
 ```
 
-You can preview the production build with `npm run preview`.
+Open the dev server (default `http://localhost:5173`). Emperor pings the media server on boot and shows an offline banner with retry if it cannot connect.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+### Production build
+
+```sh
+pnpm build
+PUBLIC_MEDIA_SERVER_URL=http://your-server:8080 pnpm preview
+```
+
+Deploy with the Node adapter (`@sveltejs/adapter-node`). Set `PUBLIC_MEDIA_SERVER_URL` at build time so the client knows where to reach the media server.
+
+## Screenshots
+
+| Home | Albums |
+| --- | --- |
+| ![Home](docs/screenshots/home.png) | ![Albums](docs/screenshots/albums.png) |
+
+| Search | Now playing |
+| --- | --- |
+| ![Search](docs/screenshots/search.png) | ![Now playing](docs/screenshots/now-playing.png) |
+
+Regenerate with a preview server running:
+
+```sh
+PUBLIC_MEDIA_SERVER_URL=http://your-server:8080 pnpm build
+PUBLIC_MEDIA_SERVER_URL=http://your-server:8080 pnpm preview &
+pnpm screenshots
+```
+
+## Development
+
+```sh
+pnpm check          # svelte-check
+pnpm lint           # prettier + eslint
+pnpm test:unit      # vitest
+pnpm test:e2e       # playwright (builds preview + runs e2e)
+```
+
+## License
+
+Private project.
