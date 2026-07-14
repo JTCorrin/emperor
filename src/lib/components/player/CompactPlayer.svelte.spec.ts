@@ -25,13 +25,13 @@ describe('CompactPlayer', () => {
 		await expect.element(page.getByText('Alpha')).toBeVisible();
 		await expect.element(page.getByText('Beta')).toBeVisible();
 
-		await page.getByRole('button', { name: 'Play' }).click();
+		await page.getByRole('button', { name: 'Play', exact: true }).click();
 		expect(toggle).toHaveBeenCalled();
 
 		await page.getByRole('button', { name: 'Next track' }).click();
 		expect(next).toHaveBeenCalled();
 
-		await page.getByRole('button', { name: /Alpha/ }).click();
+		await page.getByRole('button', { name: 'Expand player: Alpha' }).click();
 		expect(expand).toHaveBeenCalled();
 	});
 });

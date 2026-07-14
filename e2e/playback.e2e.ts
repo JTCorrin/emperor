@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { MEDIA_SERVER_BASE_URL, gotoConnected } from './helpers';
 
-const baseUrl = 'http://127.0.0.1:8080';
+const baseUrl = MEDIA_SERVER_BASE_URL;
 
 const pingFixture = { ok: true as const };
 const libraryStatusFixture = {
@@ -83,14 +84,8 @@ async function stubMediaServer(page: Page) {
 test.describe('playback survives navigation', () => {
 	test('plays a discover track and keeps the player across tabs', async ({ page }) => {
 		await stubMediaServer(page);
+		await gotoConnected(page, '/');
 
-		await page.goto('/connect');
-		await page.getByLabel('Media server URL').fill(baseUrl);
-		await page.getByRole('button', { name: 'Connect' }).click();
-		await expect(page.getByText('Connected', { exact: true })).toBeVisible();
-
-		await page.goto('/');
-		await expect(page.getByText('Connected', { exact: true })).toBeVisible({ timeout: 15_000 });
 		await expect(page.getByRole('heading', { name: 'Discover' })).toBeVisible({ timeout: 15_000 });
 		await page
 			.getByRole('button', { name: /Fixture Track/ })

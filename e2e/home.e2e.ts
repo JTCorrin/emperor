@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { MEDIA_SERVER_BASE_URL, gotoConnected } from './helpers';
 
-const baseUrl = 'http://127.0.0.1:8080';
+const baseUrl = MEDIA_SERVER_BASE_URL;
 
 const pingFixture = { ok: true as const };
 const libraryStatusFixture = {
@@ -80,15 +81,9 @@ test.describe('home shelves', () => {
 		page
 	}) => {
 		await stubHomeApis(page);
+		await gotoConnected(page, '/');
 
-		await page.goto('/connect');
-		await page.getByLabel('Media server URL').fill(baseUrl);
-		await page.getByRole('button', { name: 'Connect' }).click();
-		await expect(page.getByText('Connected', { exact: true })).toBeVisible();
-
-		await page.goto('/');
 		await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
-		await expect(page.getByText('Connected', { exact: true })).toBeVisible({ timeout: 15_000 });
 		await expect(page.getByRole('heading', { name: 'Discover' })).toBeVisible({ timeout: 15_000 });
 		await expect(page.getByRole('button', { name: /Shelf Track/ }).first()).toBeVisible();
 		await expect(

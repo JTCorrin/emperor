@@ -41,4 +41,16 @@ describe('MediaShelf', () => {
 		await expect.element(page.getByRole('button', { name: 'Scroll Discover left' })).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Scroll Discover right' })).toBeVisible();
 	});
+
+	it('exposes a horizontal touch-pannable scroller when ready', async () => {
+		render(MediaShelf, {
+			title: 'Discover',
+			status: 'ready',
+			children: undefined
+		});
+
+		const scroller = document.querySelector('.touch-pan-x.overflow-x-auto');
+		expect(scroller).toBeTruthy();
+		expect(scroller?.className).toContain('overscroll-x-contain');
+	});
 });

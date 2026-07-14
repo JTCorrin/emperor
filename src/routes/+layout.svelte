@@ -5,9 +5,10 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import CompactPlayer from '$lib/components/player/CompactPlayer.svelte';
 	import NowPlayingOverlay from '$lib/components/player/NowPlayingOverlay.svelte';
-	import ConnectionStatusBar from '$lib/components/ui/ConnectionStatusBar.svelte';
+	import OfflineBanner from '$lib/components/ui/OfflineBanner.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import TabBar from '$lib/components/ui/TabBar.svelte';
+	import { getMediaServerBaseUrl } from '$lib/config';
 	import { FavouritesController } from '$lib/features/favourites/favourites.svelte';
 	import { ConnectionController } from '$lib/state/connection.svelte';
 	import { setConnection, setFavourites, setPlayer } from '$lib/state/context';
@@ -28,10 +29,7 @@
 	setFavourites(favourites);
 
 	onMount(() => {
-		const restored = connection.restore();
-		if (restored) {
-			void connection.recheck();
-		}
+		void connection.connect(getMediaServerBaseUrl());
 	});
 
 	onDestroy(() => {
@@ -67,17 +65,15 @@
 		<div class="flex flex-wrap items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
 			<a href={resolve('/')} class="shrink-0 text-2xl font-semibold tracking-tight">Emperor</a>
 			<SearchField />
-			<a
-				href={resolve('/connect')}
-				class="border-border bg-surface-muted hover:border-accent min-h-touch inline-flex shrink-0 items-center rounded-card border px-4 text-base font-medium"
-			>
-				Server
-			</a>
 		</div>
-		<ConnectionStatusBar {connection} />
+		<TabBar />
+		<OfflineBanner {connection} />
 	</header>
 
-	<main class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-6 pb-40 sm:px-6">
+	<main
+		class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-6 sm:px-6"
+		style="padding-bottom: calc(var(--spacing-player-height) + var(--spacing-safe-bottom) + 1.5rem)"
+	>
 		{@render children()}
 	</main>
 
@@ -92,6 +88,5 @@
 			{favourites}
 			hasUserDb={connection.hasUserDb}
 		/>
-		<TabBar />
 	</div>
 </div>

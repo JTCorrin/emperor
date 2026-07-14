@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { MEDIA_SERVER_BASE_URL, gotoConnected, waitForAutoConnect } from './helpers';
 
 const pingFixture = { ok: true as const };
 const libraryStatusFixture = {
@@ -14,9 +15,9 @@ const libraryStatusFixture = {
 	album_count: 4
 };
 
-test.describe('connect journey', () => {
-	test('connects successfully against intercepted media-server responses', async ({ page }) => {
-		const baseUrl = 'http://127.0.0.1:8080';
+test.describe('auto-connect journey', () => {
+	test('boots connected against intercepted media-server responses', async ({ page }) => {
+		const baseUrl = MEDIA_SERVER_BASE_URL;
 
 		await page.route(`${baseUrl}/api/ping`, async (route) => {
 			await route.fulfill({
@@ -40,20 +41,13 @@ test.describe('connect journey', () => {
 			});
 		});
 
-		await page.goto('/connect');
-		await page.getByLabel('Media server URL').fill(baseUrl);
-		await page.getByRole('button', { name: 'Connect' }).click();
-
-		await expect(page.getByText('Connected', { exact: true })).toBeVisible();
-		await expect(page.getByText(/8080 tracks/)).toBeVisible();
-		await expect(page.getByRole('status')).toContainText(`Connected to ${baseUrl}`);
-
-		await page.getByRole('button', { name: 'Disconnect' }).click();
-		await expect(page.getByText('Not connected', { exact: true })).toBeVisible();
+		await gotoConnected(page, '/');
+		await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
+		await expect(page.getByTestId('offline-banner')).toHaveCount(0);
 	});
 
-	test('shows an error when the probe fails and recovers on retry', async ({ page }) => {
-		const baseUrl = 'http://127.0.0.1:8080';
+	test('shows offline banner when the probe fails and recovers on retry', async ({ page }) => {
+		const baseUrl = MEDIA_SERVER_BASE_URL;
 		let shouldFail = true;
 
 		await page.route(`${baseUrl}/api/ping`, async (route) => {
@@ -78,15 +72,49 @@ test.describe('connect journey', () => {
 			});
 		});
 
-		await page.goto('/connect');
-		await page.getByLabel('Media server URL').fill(baseUrl);
-		await page.getByRole('button', { name: 'Connect' }).click();
-
-		await expect(page.getByRole('alert')).toContainText(/Could not reach the media server/i);
-		await expect(page.getByText('Connection error')).toBeVisible();
+		await page.goto('/');
+		await expect(page.getByTestId('offline-banner')).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByText('Offline', { exact: true })).toBeVisible();
 
 		shouldFail = false;
-		await page.getByRole('button', { name: 'Connect', exact: true }).click();
+		await page.getByRole('button', { name: 'Retry' }).click();
+		await waitForAutoConnect(page);
+	});
+
+	test('keeps /connect as an unlinked escape hatch with library status', async ({ page }) => {
+		const baseUrl = MEDIA_SERVER_BASE_URL;
+		await page.route(
+			(url) => String(url).startsWith(baseUrl),
+			async (route) => {
+				const path = new URL(route.request().url()).pathname;
+				if (path === '/api/ping') {
+					return route.fulfill({
+						status: 200,
+						contentType: 'application/json',
+						body: JSON.stringify(pingFixture)
+					});
+				}
+				if (path === '/api/library/status') {
+					return route.fulfill({
+						status: 200,
+						contentType: 'application/json',
+						body: JSON.stringify(libraryStatusFixture)
+					});
+				}
+				if (path === '/api/playlists') {
+					return route.fulfill({
+						status: 200,
+						contentType: 'application/json',
+						body: JSON.stringify({ items: [], total: 0, limit: 1, offset: 0 })
+					});
+				}
+				await route.fallback();
+			}
+		);
+
+		await gotoConnected(page, '/connect');
+		await expect(page.getByRole('heading', { name: 'Server' })).toBeVisible();
 		await expect(page.getByText('Connected', { exact: true })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
 	});
 });

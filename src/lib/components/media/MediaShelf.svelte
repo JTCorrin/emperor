@@ -119,7 +119,7 @@
 	{:else if status === 'ready'}
 		<div
 			bind:this={scroller}
-			class="flex gap-3 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
+			class="flex touch-pan-x gap-3 overflow-x-auto overscroll-x-contain scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
 		>
 			{#if children}
 				{@render children()}

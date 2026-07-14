@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { MEDIA_SERVER_BASE_URL, gotoConnected } from './helpers';
 
-const baseUrl = 'http://127.0.0.1:8080';
+const baseUrl = MEDIA_SERVER_BASE_URL;
 
 const pingFixture = { ok: true as const };
 const libraryStatusFixture = {
@@ -98,8 +99,9 @@ async function stubBrowseApis(page: Page) {
 				return fulfillJson(route, 200, trackPage);
 			}
 			if (path === '/api/search') {
+				const q = new URL(route.request().url()).searchParams.get('q') ?? '';
 				return fulfillJson(route, 200, {
-					q: 'browse',
+					q,
 					fuzzy: false,
 					tracks: trackPage,
 					artists: artistPage,
@@ -120,10 +122,7 @@ async function stubBrowseApis(page: Page) {
 }
 
 async function connect(page: Page) {
-	await page.goto('/connect');
-	await page.getByLabel('Media server URL').fill(baseUrl);
-	await page.getByRole('button', { name: 'Connect' }).click();
-	await expect(page.getByText('Connected', { exact: true })).toBeVisible();
+	await gotoConnected(page, '/');
 }
 
 test.describe('browse and search', () => {
@@ -132,7 +131,6 @@ test.describe('browse and search', () => {
 		await connect(page);
 
 		await page.goto('/albums');
-		await expect(page.getByText('Connected', { exact: true })).toBeVisible({ timeout: 15_000 });
 		await expect(page.getByRole('button', { name: /Browse Album/ })).toBeVisible({
 			timeout: 15_000
 		});
@@ -151,7 +149,6 @@ test.describe('browse and search', () => {
 		await connect(page);
 
 		await page.goto('/search?q=browse');
-		await expect(page.getByText('Connected', { exact: true })).toBeVisible({ timeout: 15_000 });
 		await expect(page.getByText('Results for “browse”')).toBeVisible({ timeout: 15_000 });
 		await expect(page.getByRole('button', { name: /Browse Track/ })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Artists' })).toBeVisible();
@@ -164,5 +161,20 @@ test.describe('browse and search', () => {
 		await page.goto('/podcasts');
 		await expect(page.getByRole('heading', { name: 'Podcasts' })).toBeVisible();
 		await expect(page.getByRole('status')).toContainText(/unavailable/i);
+	});
+
+	test('opens artist from the sticky player via search resolve', async ({ page }) => {
+		await stubBrowseApis(page);
+		await connect(page);
+
+		await page.goto('/albums/7');
+		await page
+			.getByRole('button', { name: /Browse Track/ })
+			.first()
+			.click();
+		await expect(page.getByLabel('Now playing')).toContainText('Browse Track');
+		await page.getByRole('button', { name: 'Open artist Browse Artist' }).click();
+		await expect(page).toHaveURL(/\/artists\/3/);
+		await expect(page.getByRole('heading', { name: 'Browse Artist' })).toBeVisible();
 	});
 });

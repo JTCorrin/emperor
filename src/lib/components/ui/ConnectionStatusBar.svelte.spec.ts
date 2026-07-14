@@ -5,10 +5,11 @@ import ConnectionStatusBar from './ConnectionStatusBar.svelte';
 import { ConnectionController } from '$lib/state/connection.svelte';
 import { libraryStatusFixture } from '$lib/test/fixtures';
 
+/** Kept for the unlinked /connect escape hatch and unit coverage of status summary. */
 describe('ConnectionStatusBar', () => {
 	it('shows connected library summary and actions', async () => {
 		const connection = new ConnectionController({ storage: null });
-		connection.baseUrl = 'http://127.0.0.1:8080';
+		connection.baseUrl = 'http://192.168.5.111:8080';
 		connection.status = 'connected';
 		connection.libraryStatus = libraryStatusFixture({ track_count: 12 });
 
@@ -22,7 +23,7 @@ describe('ConnectionStatusBar', () => {
 
 	it('appends a scanning hint while a library scan is running', async () => {
 		const connection = new ConnectionController({ storage: null });
-		connection.baseUrl = 'http://127.0.0.1:8080';
+		connection.baseUrl = 'http://192.168.5.111:8080';
 		connection.status = 'connected';
 		connection.libraryStatus = libraryStatusFixture({ track_count: 12, scanning: true });
 

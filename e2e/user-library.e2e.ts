@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { MEDIA_SERVER_BASE_URL, gotoConnected } from './helpers';
 
-const baseUrl = 'http://127.0.0.1:8080';
+const baseUrl = MEDIA_SERVER_BASE_URL;
 
 const pingFixture = { ok: true as const };
 const libraryStatusFixture = {
@@ -153,10 +154,7 @@ async function stubUserDbApis(page: Page, opts: { userDb: boolean }) {
 }
 
 async function connect(page: Page) {
-	await page.goto('/connect');
-	await page.getByLabel('Media server URL').fill(baseUrl);
-	await page.getByRole('button', { name: 'Connect' }).click();
-	await expect(page.getByText('Connected', { exact: true })).toBeVisible();
+	await gotoConnected(page, '/');
 }
 
 test.describe('user library', () => {

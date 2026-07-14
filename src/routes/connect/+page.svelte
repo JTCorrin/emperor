@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import ConnectForm from '$lib/features/connect/ConnectForm.svelte';
-	import { DEFAULT_DEV_BASE_URL } from '$lib/config';
+	import ConnectionStatusBar from '$lib/components/ui/ConnectionStatusBar.svelte';
+	import { getMediaServerBaseUrl } from '$lib/config';
 	import { getConnection } from '$lib/state/context';
 
 	const connection = getConnection();
-	const initialBaseUrl = $derived(connection.baseUrl ?? DEFAULT_DEV_BASE_URL);
-
+	const configuredUrl = getMediaServerBaseUrl();
+	const initialBaseUrl = $derived(connection.baseUrl ?? configuredUrl);
 	const status = $derived(connection.libraryStatus);
 
 	function formatScanTime(unix: number | null | undefined): string {
@@ -21,15 +22,19 @@
 
 <section class="flex flex-1 flex-col gap-6">
 	<div class="flex flex-col gap-2">
-		<h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Connect</h1>
+		<h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Server</h1>
 		<p class="text-text-muted max-w-2xl text-lg">
-			Enter the base URL of a trusted-LAN media-server. Development default:
-			<code class="text-text">{DEFAULT_DEV_BASE_URL}</code>
+			Escape hatch for overriding the configured media-server URL (<code class="text-text"
+				>{configuredUrl}</code
+			>). Normal app boot uses
+			<code class="text-text">PUBLIC_MEDIA_SERVER_URL</code> automatically.
 		</p>
 		<p class="text-text-muted max-w-2xl text-base">
 			If Emperor uses HTTPS, your browser may block an HTTP media server as mixed content.
 		</p>
 	</div>
+
+	<ConnectionStatusBar {connection} />
 
 	{#key initialBaseUrl}
 		<ConnectForm {initialBaseUrl} />
@@ -37,7 +42,7 @@
 
 	{#if connection.status === 'connected'}
 		<p class="text-success text-lg" role="status">
-			Connected to {connection.baseUrl}. You can return to
+			Connected to {connection.baseUrl}. Return to
 			<a class="text-accent-strong underline" href={resolve('/')}>Home</a>.
 		</p>
 

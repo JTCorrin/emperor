@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { MEDIA_SERVER_BASE_URL, gotoConnected } from './helpers';
 
-const baseUrl = 'http://127.0.0.1:8080';
+const baseUrl = MEDIA_SERVER_BASE_URL;
 
 const pingFixture = { ok: true as const };
 
@@ -140,10 +141,7 @@ async function stubMetadataApis(page: Page, options: { scanBusy?: boolean } = {}
 }
 
 async function connect(page: Page) {
-	await page.goto('/connect');
-	await page.getByLabel('Media server URL').fill(baseUrl);
-	await page.getByRole('button', { name: 'Connect' }).click();
-	await expect(page.getByText('Connected', { exact: true })).toBeVisible();
+	await gotoConnected(page, '/');
 }
 
 test.describe('metadata and library management', () => {
@@ -215,6 +213,7 @@ test.describe('metadata and library management', () => {
 	test('starts a library scan and shows Scanning status', async ({ page }) => {
 		await stubMetadataApis(page);
 		await connect(page);
+		await page.goto('/connect');
 
 		await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
 		await page.getByRole('button', { name: 'Rescan', exact: true }).click();
@@ -225,6 +224,7 @@ test.describe('metadata and library management', () => {
 	test('shows busy copy when scan returns 409', async ({ page }) => {
 		await stubMetadataApis(page, { scanBusy: true });
 		await connect(page);
+		await page.goto('/connect');
 
 		await page.getByRole('button', { name: 'Rescan', exact: true }).click();
 		await expect(page.getByRole('alert')).toContainText(/already in progress/i);

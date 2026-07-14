@@ -22,7 +22,7 @@
 	}
 </script>
 
-<nav class="border-border bg-surface/95 border-t backdrop-blur" aria-label="Primary">
+<nav class="border-border bg-surface/95 border-b backdrop-blur" aria-label="Primary">
 	<ul class="mx-auto grid max-w-6xl grid-cols-5 gap-1 px-1 py-1 sm:px-2">
 		{#each tabs as tab (tab.href)}
 			<li>

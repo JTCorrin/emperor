@@ -1,5 +1,11 @@
 <script lang="ts">
 	import CoverArt from '$lib/components/media/CoverArt.svelte';
+	import { createMediaServerClient } from '$lib/api';
+	import {
+		gotoCatalogLink,
+		resolveAlbumFromSearch,
+		resolveArtistFromSearch
+	} from '$lib/features/browse/resolveCatalogLinks';
 	import type { PlayerController } from '$lib/state/player.svelte';
 
 	interface Props {
@@ -13,6 +19,8 @@
 	const progressMax = $derived(player.duration > 0 ? player.duration : 1);
 	const canPrevious = $derived(player.index > 0);
 	const canNext = $derived(player.index >= 0 && player.index < player.queue.length - 1);
+
+	let linkPending = $state(false);
 
 	function onWindowKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape' && player.expanded) {
@@ -56,6 +64,32 @@
 			if (previousFocus?.isConnected) previousFocus.focus();
 		};
 	}
+
+	async function openArtist() {
+		if (!track || !baseUrl || linkPending) return;
+		linkPending = true;
+		try {
+			const client = createMediaServerClient({ baseUrl });
+			const target = await resolveArtistFromSearch(client, track.artist);
+			player.collapse();
+			await gotoCatalogLink(target);
+		} finally {
+			linkPending = false;
+		}
+	}
+
+	async function openAlbum() {
+		if (!track || !baseUrl || linkPending) return;
+		linkPending = true;
+		try {
+			const client = createMediaServerClient({ baseUrl });
+			const target = await resolveAlbumFromSearch(client, track.album, track.artist);
+			player.collapse();
+			await gotoCatalogLink(target);
+		} finally {
+			linkPending = false;
+		}
+	}
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />
@@ -84,10 +118,26 @@
 
 			<div class="mt-8 flex flex-col items-center gap-4 text-center">
 				<CoverArt title={track.title} artist={track.artist} {baseUrl} size="lg" />
-				<div>
+				<div class="flex flex-col items-center gap-2">
 					<h2 id="now-playing-title" class="text-2xl font-semibold">{track.title}</h2>
-					<p class="text-text-muted text-lg">{track.artist}</p>
-					<p class="text-text-muted text-sm">{track.album}</p>
+					<button
+						type="button"
+						class="text-text-muted hover:text-accent min-h-touch text-lg font-medium disabled:opacity-50"
+						aria-label={`Open artist ${track.artist}`}
+						disabled={linkPending || !baseUrl}
+						onclick={() => void openArtist()}
+					>
+						{track.artist}
+					</button>
+					<button
+						type="button"
+						class="text-text-muted hover:text-accent min-h-touch text-base font-medium disabled:opacity-50"
+						aria-label={`Open album ${track.album}`}
+						disabled={linkPending || !baseUrl}
+						onclick={() => void openAlbum()}
+					>
+						{track.album}
+					</button>
 				</div>
 			</div>
 
