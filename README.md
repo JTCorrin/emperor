@@ -42,12 +42,12 @@ Deploy with the Node adapter (`@sveltejs/adapter-node`). Set `PUBLIC_MEDIA_SERVE
 
 ## Screenshots
 
-| Home | Albums |
-| --- | --- |
+| Home                               | Albums                                 |
+| ---------------------------------- | -------------------------------------- |
 | ![Home](docs/screenshots/home.png) | ![Albums](docs/screenshots/albums.png) |
 
-| Search | Now playing |
-| --- | --- |
+| Search                                 | Now playing                                      |
+| -------------------------------------- | ------------------------------------------------ |
 | ![Search](docs/screenshots/search.png) | ![Now playing](docs/screenshots/now-playing.png) |
 
 Regenerate with a preview server running:
