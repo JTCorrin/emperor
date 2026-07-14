@@ -9,7 +9,7 @@ A SvelteKit web client for **media-server** — browse your library, search, str
 - **Home shelves** — discover, recently added, recently played, playlists, and favourites
 - **Browse** — artists, albums, and the full track list with cover art
 - **Search** — tracks, artists, and albums (optional fuzzy matching)
-- **Playback** — queue, shuffle/repeat, compact bar, and expanded now-playing overlay
+- **Playback** — queue, shuffle/repeat, and compact now-playing bar
 - **User library** — playlists, favourites, and play history (when the server runs with `--user-db`)
 - **Metadata** — edit track/album tags in the catalog; optional MusicBrainz lookup and cover apply
 

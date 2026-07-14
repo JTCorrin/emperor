@@ -19,7 +19,6 @@ describe('CompactPlayer', () => {
 		);
 		player.playbackStatus = 'paused';
 
-		const expand = vi.spyOn(player, 'expand');
 		const toggle = vi.spyOn(player, 'toggle');
 		const next = vi.spyOn(player, 'next').mockImplementation(() => {});
 
@@ -46,8 +45,24 @@ describe('CompactPlayer', () => {
 		expect(toggleShuffle).toHaveBeenCalled();
 		await page.getByRole('button', { name: 'Repeat off' }).click();
 		expect(cycleRepeat).toHaveBeenCalled();
+	});
 
-		await page.getByRole('button', { name: 'Expand player: Alpha' }).click();
-		expect(expand).toHaveBeenCalled();
+	it('opens add-to-playlist from the more menu', async () => {
+		const player = new PlayerController({
+			getBaseUrl: () => 'http://127.0.0.1:8080'
+		});
+		player.playTracks([trackFixture({ id: 1, title: 'Alpha' })], 0);
+
+		const onAddToPlaylist = vi.fn();
+		render(CompactPlayer, {
+			player,
+			baseUrl: 'http://127.0.0.1:8080',
+			hasUserDb: true,
+			onAddToPlaylist
+		});
+
+		await page.getByRole('button', { name: 'More actions' }).click();
+		await page.getByRole('menuitem', { name: 'Add to playlist' }).click();
+		expect(onAddToPlaylist).toHaveBeenCalled();
 	});
 });

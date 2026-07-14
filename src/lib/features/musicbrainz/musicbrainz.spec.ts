@@ -116,6 +116,32 @@ describe('musicbrainz mapToForm', () => {
 		});
 	});
 
+	it('prefers genres over tags on release and release-group', () => {
+		const album = mapReleaseToAlbumForm({
+			id: 'rel-3',
+			title: 'Drums and Wires',
+			'artist-credit': [{ name: 'XTC' }],
+			tags: [{ name: 'folksonomy', count: 99 }],
+			genres: [{ name: 'new wave', count: 3 }],
+			'release-group': {
+				tags: [{ name: 'rg-tag', count: 50 }],
+				genres: [{ name: 'art rock', count: 10 }]
+			}
+		});
+		expect(album.form.genre).toBe('new wave');
+
+		const fromGroup = mapReleaseToAlbumForm({
+			id: 'rel-4',
+			title: 'Black Sea',
+			tags: [{ name: 'folksonomy', count: 99 }],
+			'release-group': {
+				genres: [{ name: 'pop rock', count: 2 }],
+				tags: [{ name: 'rg-tag', count: 50 }]
+			}
+		});
+		expect(fromGroup.form.genre).toBe('pop rock');
+	});
+
 	it('normalizes dates and builds search queries', () => {
 		expect(normalizeMbDate('1999-05')).toBe('1999-05');
 		expect(normalizeMbDate('1999-05-01T00:00:00Z')).toBe('1999');
@@ -181,6 +207,28 @@ describe('musicbrainz client (stubbed fetch)', () => {
 		expect(await cover.blob.arrayBuffer()).toEqual(bytes.buffer);
 	});
 
+	it('looks up a release by MBID with tags and genres', async () => {
+		let seenUrl: string | null = null;
+		const mb = createMusicBrainzClient({
+			contact,
+			fetch: async (input) => {
+				seenUrl = String(input);
+				return jsonResponse({
+					id: 'rel-detail',
+					title: 'Album',
+					genres: [{ name: 'jazz', count: 2 }],
+					tags: [{ name: 'cool', count: 1 }]
+				});
+			}
+		});
+
+		const release = await mb.getRelease('rel-detail');
+		expect(release.id).toBe('rel-detail');
+		expect(release.genres?.[0]?.name).toBe('jazz');
+		expect(seenUrl).toContain(`${MUSICBRAINZ_API_BASE}/release/rel-detail?`);
+		expect(seenUrl).toContain('inc=tags%2Bgenres%2Brelease-groups');
+	});
+
 	it('rejects missing contact', () => {
 		expect(() => createMusicBrainzClient({ contact: '' })).toThrow(MusicBrainzError);
 	});
@@ -212,12 +260,20 @@ describe('musicbrainz lookup helpers', () => {
 		expect(outcome).toEqual({ kind: 'empty' });
 	});
 
-	it('maps first album release', async () => {
+	it('maps first album release via detailed lookup', async () => {
 		const outcome = await lookupAlbumMetadata(
 			{
 				searchReleases: async () => [
 					{ id: 'rel', title: 'LP', 'artist-credit': [{ name: 'Band' }], date: '2020' }
-				]
+				],
+				getRelease: async (mbid) => ({
+					id: mbid,
+					title: 'LP',
+					'artist-credit': [{ name: 'Band' }],
+					date: '2020',
+					genres: [{ name: 'indie rock', count: 4 }],
+					tags: [{ name: 'ignored', count: 99 }]
+				})
 			},
 			{ name: 'LP', artist: 'Band' }
 		);
@@ -225,6 +281,31 @@ describe('musicbrainz lookup helpers', () => {
 		if (outcome.kind === 'ok') {
 			expect(outcome.result.releaseMbid).toBe('rel');
 			expect(outcome.result.form.name).toBe('LP');
+			expect(outcome.result.form.genre).toBe('indie rock');
+		}
+	});
+
+	it('looks up the searched release by MBID', async () => {
+		const seenIds: string[] = [];
+		const outcome = await lookupAlbumMetadata(
+			{
+				searchReleases: async () => [{ id: 'rel-from-search', title: 'Search Hit' }],
+				getRelease: async (mbid) => {
+					seenIds.push(mbid);
+					return {
+						id: mbid,
+						title: 'Detailed',
+						genres: [{ name: 'electronic', count: 1 }]
+					};
+				}
+			},
+			{ name: 'Search Hit', artist: 'Artist' }
+		);
+		expect(seenIds).toEqual(['rel-from-search']);
+		expect(outcome.kind).toBe('ok');
+		if (outcome.kind === 'ok') {
+			expect(outcome.result.form.genre).toBe('electronic');
+			expect(outcome.result.form.name).toBe('Detailed');
 		}
 	});
 });

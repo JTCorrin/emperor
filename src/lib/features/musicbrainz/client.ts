@@ -8,6 +8,7 @@ import {
 } from './constants';
 import {
 	mbRecordingSearchSchema,
+	mbReleaseSchema,
 	mbReleaseSearchSchema,
 	type MbRecording,
 	type MbRelease
@@ -195,6 +196,24 @@ export function createMusicBrainzClient(options: MusicBrainzClientOptions) {
 			});
 			const body = await getJson(`/release?${params}`, contact, fetchImpl, signal);
 			return mbReleaseSearchSchema.parse(body).releases;
+		},
+
+		async getRelease(mbid: string, signal?: AbortSignal): Promise<MbRelease> {
+			const id = mbid.trim();
+			if (!id) {
+				throw new MusicBrainzError('Release MBID is required');
+			}
+			const params = new URLSearchParams({
+				fmt: 'json',
+				inc: 'tags+genres+release-groups'
+			});
+			const body = await getJson(
+				`/release/${encodeURIComponent(id)}?${params}`,
+				contact,
+				fetchImpl,
+				signal
+			);
+			return mbReleaseSchema.parse(body);
 		},
 
 		async fetchFrontCover(releaseMbid: string, signal?: AbortSignal): Promise<CoverArtResult> {

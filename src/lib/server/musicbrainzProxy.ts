@@ -51,6 +51,21 @@ export async function proxyReleaseSearch(
 	});
 }
 
+export async function proxyReleaseLookup(
+	contact: string,
+	mbid: string,
+	signal?: AbortSignal
+): Promise<Response> {
+	const params = new URLSearchParams({
+		fmt: 'json',
+		inc: 'tags+genres+release-groups'
+	});
+	return fetch(`${MUSICBRAINZ_API_BASE}/release/${encodeURIComponent(mbid)}?${params}`, {
+		headers: mbHeaders(contact),
+		signal
+	});
+}
+
 export async function proxyFrontCover(
 	contact: string,
 	releaseMbid: string,

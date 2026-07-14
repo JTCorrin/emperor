@@ -202,7 +202,6 @@ test.describe('RF3 add to playlist and player covers', () => {
 			.getByRole('button', { name: /Cover Track/ })
 			.first()
 			.click();
-		await page.getByRole('button', { name: 'Expand player: Cover Track' }).click();
 		await page.getByRole('button', { name: 'More actions' }).click();
 		await page.getByRole('menuitem', { name: 'Add to playlist' }).click();
 		await expect(page.getByRole('heading', { name: 'Add to playlist' })).toBeVisible();

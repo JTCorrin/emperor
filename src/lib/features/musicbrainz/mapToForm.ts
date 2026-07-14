@@ -15,6 +15,13 @@ function topTag(tags: { name?: string; count?: number }[] | undefined): string {
 	return (sorted[0]?.name ?? '').trim();
 }
 
+function releaseGenre(release: MbRelease): string {
+	const group = release['release-group'];
+	return (
+		topTag(release.genres) || topTag(group?.genres) || topTag(release.tags) || topTag(group?.tags)
+	);
+}
+
 /** Normalize MB date strings to YYYY / YYYY-MM / YYYY-MM-DD when possible. */
 export function normalizeMbDate(date: string | undefined): string {
 	if (!date) return '';
@@ -62,16 +69,13 @@ export function mapRecordingToTrackForm(recording: MbRecording): TrackLookupResu
 }
 
 export function mapReleaseToAlbumForm(release: MbRelease): AlbumLookupResult {
-	const groupTags = release['release-group']?.tags;
-	const genre = topTag(release.tags) || topTag(groupTags);
-
 	return {
 		releaseMbid: release.id,
 		form: {
 			name: (release.title ?? '').trim(),
 			artist: artistCreditName(release['artist-credit']),
 			release_date: normalizeMbDate(release.date),
-			genre
+			genre: releaseGenre(release)
 		}
 	};
 }

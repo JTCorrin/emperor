@@ -39,7 +39,7 @@ export async function lookupTrackMetadata(
 }
 
 export async function lookupAlbumMetadata(
-	mb: Pick<MusicBrainzClient, 'searchReleases'>,
+	mb: Pick<MusicBrainzClient, 'searchReleases' | 'getRelease'>,
 	form: Pick<AlbumMetadataForm, 'name' | 'artist'>,
 	signal?: AbortSignal
 ): Promise<AlbumLookupOutcome> {
@@ -48,7 +48,8 @@ export async function lookupAlbumMetadata(
 		const releases = await mb.searchReleases(query, signal);
 		const first = releases[0];
 		if (!first) return { kind: 'empty' };
-		return { kind: 'ok', result: mapReleaseToAlbumForm(first) };
+		const detailed = await mb.getRelease(first.id, signal);
+		return { kind: 'ok', result: mapReleaseToAlbumForm(detailed) };
 	} catch (cause) {
 		return {
 			kind: 'error',

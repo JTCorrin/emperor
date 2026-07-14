@@ -50,7 +50,6 @@ export class PlayerController {
 	playbackStatus = $state<PlaybackStatus>('idle');
 	position = $state(0);
 	duration = $state(0);
-	expanded = $state(false);
 	errorMessage = $state<string | null>(null);
 	shuffle = $state(false);
 	repeat = $state<RepeatMode>('off');
@@ -183,14 +182,6 @@ export class PlayerController {
 		const max = Number.isFinite(this.#audio.duration) ? this.#audio.duration : seconds;
 		this.#audio.currentTime = Math.max(0, Math.min(seconds, max));
 		this.position = this.#audio.currentTime;
-	}
-
-	expand(): void {
-		this.expanded = true;
-	}
-
-	collapse(): void {
-		this.expanded = false;
 	}
 
 	dispose(): void {

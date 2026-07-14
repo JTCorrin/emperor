@@ -181,7 +181,9 @@
 			$form.name = next.name || $form.name;
 			$form.artist = next.artist || $form.artist;
 			$form.release_date = next.release_date ?? $form.release_date;
-			$form.genre = next.genre ?? $form.genre;
+			if (next.genre) {
+				$form.genre = next.genre;
+			}
 
 			if (applyCoverOnLookup && releaseMbid) {
 				await applyCover(releaseMbid);

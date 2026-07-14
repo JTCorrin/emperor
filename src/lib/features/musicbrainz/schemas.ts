@@ -7,6 +7,8 @@ const artistCreditSchema = z
 	})
 	.partial();
 
+const namedCountSchema = z.object({ name: z.string(), count: z.number().optional() }).partial();
+
 const releaseRefSchema = z
 	.object({
 		id: z.string(),
@@ -40,7 +42,7 @@ export const mbRecordingSchema = z.object({
 	title: z.string().optional(),
 	'artist-credit': z.array(artistCreditSchema).optional(),
 	releases: z.array(releaseRefSchema).optional(),
-	tags: z.array(z.object({ name: z.string(), count: z.number().optional() }).partial()).optional()
+	tags: z.array(namedCountSchema).optional()
 });
 
 export const mbRecordingSearchSchema = z.object({
@@ -53,12 +55,12 @@ export const mbReleaseSchema = z.object({
 	date: z.string().optional(),
 	'artist-credit': z.array(artistCreditSchema).optional(),
 	'tag-list': z.array(z.object({ name: z.string() }).partial()).optional(),
-	tags: z.array(z.object({ name: z.string(), count: z.number().optional() }).partial()).optional(),
+	tags: z.array(namedCountSchema).optional(),
+	genres: z.array(namedCountSchema).optional(),
 	'release-group': z
 		.object({
-			tags: z
-				.array(z.object({ name: z.string(), count: z.number().optional() }).partial())
-				.optional()
+			tags: z.array(namedCountSchema).optional(),
+			genres: z.array(namedCountSchema).optional()
 		})
 		.partial()
 		.optional()

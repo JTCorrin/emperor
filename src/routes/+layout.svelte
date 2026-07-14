@@ -5,7 +5,6 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import CompactPlayer from '$lib/components/player/CompactPlayer.svelte';
-	import NowPlayingOverlay from '$lib/components/player/NowPlayingOverlay.svelte';
 	import OfflineBanner from '$lib/components/ui/OfflineBanner.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import TabBar from '$lib/components/ui/TabBar.svelte';
@@ -90,17 +89,6 @@
 	</main>
 
 	<audio {@attach attachAudio} preload="metadata" class="hidden"></audio>
-	<NowPlayingOverlay
-		{player}
-		baseUrl={connection.baseUrl}
-		hasUserDb={connection.hasUserDb}
-		onAddToPlaylist={connection.hasUserDb === true
-			? () => {
-					const track = player.currentTrack;
-					if (track) addToPlaylist.open(track);
-				}
-			: undefined}
-	/>
 	<AddToPlaylistDialog track={addToPlaylist.track} onclose={() => addToPlaylist.close()} />
 	<div
 		class="fixed inset-x-0 bottom-0 z-10 pr-[var(--spacing-safe-right)] pb-[var(--spacing-safe-bottom)] pl-[var(--spacing-safe-left)]"
@@ -110,6 +98,12 @@
 			baseUrl={connection.baseUrl}
 			{favourites}
 			hasUserDb={connection.hasUserDb}
+			onAddToPlaylist={connection.hasUserDb === true
+				? () => {
+						const track = player.currentTrack;
+						if (track) addToPlaylist.open(track);
+					}
+				: undefined}
 		/>
 	</div>
 </div>
