@@ -8,6 +8,9 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      # Keep pnpm's content store out of the workspace so lint does not scan it.
+      PNPM_STORE_DIR: ~/.pnpm-store
     steps:
       - name: Checkout
         uses: actions/checkout@v4
