@@ -5,8 +5,6 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=__DEPLOY_USER__
-Group=__DEPLOY_USER__
 WorkingDirectory=__DEPLOY_PATH__
 ExecStart=__NODE_BIN__ build
 Restart=on-failure
@@ -16,8 +14,5 @@ Environment=HOST=__APP_HOST__
 Environment=PORT=__APP_PORT__
 Environment=ORIGIN=__APP_ORIGIN__
 
-# Harden lightly; deploy user owns the app tree.
-NoNewPrivileges=true
-
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

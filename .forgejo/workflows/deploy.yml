@@ -104,7 +104,7 @@ jobs:
         run: |
           mkdir -p payload
           cp -a build package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc deploy payload/
-          chmod +x payload/deploy/remote-install.sh
+          chmod +x payload/deploy/remote-install.sh payload/deploy/bootstrap-lxc-root.sh
 
       - name: Install deploy tools
         run: |
