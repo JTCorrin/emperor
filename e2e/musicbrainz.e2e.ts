@@ -143,6 +143,17 @@ async function stubMusicBrainz(page: Page) {
 		});
 	});
 
+	await page.route('**/api/musicbrainz/release/rel-mb?**', async (route) => {
+		return fulfillJson(route, 200, {
+			id: 'rel-mb',
+			title: 'Corrected Album',
+			date: '2020',
+			'artist-credit': [{ name: 'Corrected Artist' }],
+			genres: [{ name: 'indie', count: 2 }],
+			tags: [{ name: 'indie', count: 2 }]
+		});
+	});
+
 	await page.route('**/api/musicbrainz/release/*/front', async (route) => {
 		await route.fulfill({
 			status: 200,
@@ -221,6 +232,7 @@ test.describe('MusicBrainz settings and lookup', () => {
 		await page.getByRole('button', { name: 'Lookup MusicBrainz' }).click();
 		await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Corrected Album');
 		await expect(page.getByLabel('Artist', { exact: true })).toHaveValue('Corrected Artist');
+		await expect(page.getByLabel('Genre', { exact: true })).toHaveValue('indie');
 
 		await page.getByRole('button', { name: 'Apply cover' }).click();
 		await expect(page.getByRole('status')).toContainText(/cover applied/i);
