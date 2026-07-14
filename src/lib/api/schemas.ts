@@ -151,6 +151,13 @@ export const albumPatchResponseSchema = z.object({
 	updated_track_count: z.number().int().nonnegative()
 });
 
+/** Response from PUT /api/albums/:id/cover (202). */
+export const albumCoverUploadResponseSchema = z.object({
+	ok: z.literal(true),
+	path: z.string(),
+	scan: z.string()
+});
+
 /** Form-facing track edit values (strings for inputs). */
 export const trackMetadataFormSchema = z.object({
 	title: z.string(),
@@ -203,6 +210,7 @@ export type SearchResponse = z.infer<typeof searchResponseSchema>;
 export type TrackMetadataPatch = z.infer<typeof trackMetadataPatchSchema>;
 export type AlbumMetadataPatch = z.infer<typeof albumMetadataPatchSchema>;
 export type AlbumPatchResponse = z.infer<typeof albumPatchResponseSchema>;
+export type AlbumCoverUploadResponse = z.infer<typeof albumCoverUploadResponseSchema>;
 export type TrackMetadataForm = z.infer<typeof trackMetadataFormSchema>;
 export type AlbumMetadataForm = z.infer<typeof albumMetadataFormSchema>;
 export type PageEnvelope<T> = {

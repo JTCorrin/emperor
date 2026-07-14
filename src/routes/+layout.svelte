@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
@@ -12,6 +13,7 @@
 	import { FavouritesController } from '$lib/features/favourites/favourites.svelte';
 	import { AddToPlaylistController } from '$lib/features/playlists/addToPlaylist.svelte';
 	import AddToPlaylistDialog from '$lib/features/playlists/AddToPlaylistDialog.svelte';
+	import { recordNavPath } from '$lib/navigation/navTrail';
 	import { ConnectionController } from '$lib/state/connection.svelte';
 	import { setAddToPlaylist, setConnection, setFavourites, setPlayer } from '$lib/state/context';
 	import { PlayerController } from '$lib/state/player.svelte';
@@ -31,6 +33,12 @@
 	setPlayer(player);
 	setFavourites(favourites);
 	setAddToPlaylist(addToPlaylist);
+
+	afterNavigate((navigation) => {
+		const to = navigation.to;
+		if (!to) return;
+		recordNavPath(`${to.url.pathname}${to.url.search}`);
+	});
 
 	onMount(() => {
 		void connection.connect(getMediaServerBaseUrl());

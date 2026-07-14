@@ -20,13 +20,19 @@
 
 	const track = $derived(player.currentTrack);
 	const progressMax = $derived(player.duration > 0 ? player.duration : 1);
-	const canPrevious = $derived(player.index > 0);
-	const canNext = $derived(player.index >= 0 && player.index < player.queue.length - 1);
+	const canPrevious = $derived(player.canGoPrevious);
+	const canNext = $derived(player.canGoNext);
 	const showAdd = $derived(hasUserDb === true && onAddToPlaylist != null);
 
 	let linkPending = $state(false);
 	let coverId = $state<number | null>(null);
 	let menuOpen = $state(false);
+
+	function repeatLabel(mode: typeof player.repeat): string {
+		if (mode === 'all') return 'Repeat all';
+		if (mode === 'one') return 'Repeat one';
+		return 'Repeat off';
+	}
 
 	function onWindowKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape' && player.expanded) {
@@ -247,6 +253,29 @@
 					onclick={() => player.next()}
 				>
 					Next
+				</button>
+				<button
+					type="button"
+					class="min-h-touch-lg min-w-touch-lg rounded-card text-base font-medium {player.shuffle
+						? 'bg-accent text-text hover:bg-accent-strong'
+						: 'border-border bg-surface-muted border'}"
+					aria-pressed={player.shuffle}
+					aria-label={player.shuffle ? 'Shuffle on' : 'Shuffle off'}
+					onclick={() => player.toggleShuffle()}
+				>
+					Shuffle
+				</button>
+				<button
+					type="button"
+					class="min-h-touch-lg min-w-touch-lg rounded-card text-base font-medium {player.repeat !==
+					'off'
+						? 'bg-accent text-text hover:bg-accent-strong'
+						: 'border-border bg-surface-muted border'}"
+					aria-pressed={player.repeat !== 'off'}
+					aria-label={repeatLabel(player.repeat)}
+					onclick={() => player.cycleRepeat()}
+				>
+					{player.repeat === 'all' ? 'All' : player.repeat === 'one' ? 'One' : 'Off'}
 				</button>
 			</div>
 		</div>

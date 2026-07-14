@@ -12,6 +12,10 @@
 		type AlbumMetadataForm,
 		type AlbumMetadataPatch
 	} from '$lib/api';
+	import { applyAlbumCoverFromMusicBrainz } from '$lib/features/musicbrainz/applyCover';
+	import { createMusicBrainzClient } from '$lib/features/musicbrainz/client';
+	import { lookupAlbumMetadata } from '$lib/features/musicbrainz/lookup';
+	import { loadMusicBrainzSettings } from '$lib/features/musicbrainz/settings';
 	import { getConnection } from '$lib/state/context';
 	import { refetchAlbumAfterPatch } from './albumRegroup';
 	import { albumToFormValues, buildAlbumPatch } from './patchBuilders';
@@ -19,17 +23,27 @@
 	interface Props {
 		album: Album | null;
 		onsaved?: (album: Album) => void;
+		/** Called when cover is applied without closing the dialog. */
+		onalbumupdated?: (album: Album) => void;
 		onclose?: () => void;
 	}
 
-	let { album, onsaved, onclose }: Props = $props();
+	let { album, onsaved, onalbumupdated, onclose }: Props = $props();
 
 	const connection = getConnection();
 
 	let dialog: HTMLDialogElement | undefined;
 	let saveError = $state<string | null>(null);
+	let lookupError = $state<string | null>(null);
+	let coverError = $state<string | null>(null);
+	let coverNotice = $state<string | null>(null);
+	let lookupPending = $state(false);
+	let coverPending = $state(false);
 	let cleared = $state<Partial<Record<keyof AlbumMetadataPatch, boolean>>>({});
 	let formAlbumId: number | null = null;
+	let mbContact = $state('');
+	let applyCoverOnLookup = $state(false);
+	let releaseMbid = $state<string | null>(null);
 
 	const { form, errors, enhance, submitting, reset } = superForm(
 		defaults(emptyForm(), zod4(albumMetadataFormSchema)),
@@ -91,6 +105,9 @@
 	function closeDialog() {
 		dialog?.close();
 		saveError = null;
+		lookupError = null;
+		coverError = null;
+		coverNotice = null;
 		cleared = {};
 		onclose?.();
 	}
@@ -102,6 +119,86 @@
 		}
 	}
 
+	function refreshMbSettings() {
+		const settings = loadMusicBrainzSettings();
+		mbContact = settings.contact;
+		applyCoverOnLookup = settings.applyCoverOnLookup;
+	}
+
+	async function applyCover(mbid: string) {
+		if (!album || !connection.baseUrl || !mbContact) return;
+		coverError = null;
+		coverNotice = null;
+		coverPending = true;
+		try {
+			const mb = createMusicBrainzClient({ contact: mbContact });
+			const media = createMediaServerClient({ baseUrl: connection.baseUrl });
+			const result = await applyAlbumCoverFromMusicBrainz({
+				mb,
+				media,
+				albumId: album.id,
+				releaseMbid: mbid
+			});
+			if (result.kind === 'error') {
+				coverError = result.message;
+				return;
+			}
+			coverNotice = 'Cover applied from Cover Art Archive.';
+			onalbumupdated?.(result.album);
+		} finally {
+			coverPending = false;
+		}
+	}
+
+	async function onLookupMusicBrainz() {
+		lookupError = null;
+		coverError = null;
+		coverNotice = null;
+		refreshMbSettings();
+		if (!mbContact) {
+			lookupError = 'Set a MusicBrainz contact in Settings before looking up.';
+			return;
+		}
+
+		lookupPending = true;
+		try {
+			const mb = createMusicBrainzClient({ contact: mbContact });
+			const outcome = await lookupAlbumMetadata(mb, {
+				name: $form.name,
+				artist: $form.artist
+			});
+			if (outcome.kind === 'empty') {
+				lookupError = 'No MusicBrainz release matched the current fields.';
+				return;
+			}
+			if (outcome.kind === 'error') {
+				lookupError = outcome.message;
+				return;
+			}
+			const next = outcome.result.form;
+			releaseMbid = outcome.result.releaseMbid;
+			cleared = {};
+			$form.name = next.name || $form.name;
+			$form.artist = next.artist || $form.artist;
+			$form.release_date = next.release_date ?? $form.release_date;
+			$form.genre = next.genre ?? $form.genre;
+
+			if (applyCoverOnLookup && releaseMbid) {
+				await applyCover(releaseMbid);
+			}
+		} finally {
+			lookupPending = false;
+		}
+	}
+
+	async function onApplyCover() {
+		if (!releaseMbid) {
+			coverError = 'Lookup MusicBrainz first so a release MBID is available.';
+			return;
+		}
+		await applyCover(releaseMbid);
+	}
+
 	function syncDialog(element: HTMLDialogElement) {
 		dialog = element;
 		const next = album;
@@ -110,6 +207,11 @@
 				formAlbumId = next.id;
 				cleared = {};
 				saveError = null;
+				lookupError = null;
+				coverError = null;
+				coverNotice = null;
+				releaseMbid = null;
+				refreshMbSettings();
 				reset({ data: albumToFormValues(next) });
 			}
 			queueMicrotask(() => {
@@ -128,6 +230,9 @@
 	aria-labelledby="album-metadata-title"
 	onclose={() => {
 		saveError = null;
+		lookupError = null;
+		coverError = null;
+		coverNotice = null;
 		cleared = {};
 		onclose?.();
 	}}
@@ -175,11 +280,45 @@
 				</div>
 			{/each}
 
+			{#if lookupError}
+				<p class="text-danger text-base" role="alert">{lookupError}</p>
+			{/if}
+			{#if coverError}
+				<p class="text-danger text-base" role="alert">{coverError}</p>
+			{/if}
+			{#if coverNotice}
+				<p class="text-success text-base" role="status">{coverNotice}</p>
+			{/if}
 			{#if saveError}
 				<p class="text-danger text-base" role="alert">{saveError}</p>
 			{/if}
 
 			<div class="flex flex-wrap gap-3">
+				{#if mbContact}
+					<button
+						type="button"
+						class="border-border bg-surface-muted hover:border-accent min-h-touch rounded-card border px-5 text-base font-semibold disabled:opacity-60"
+						disabled={$submitting || lookupPending || coverPending}
+						onclick={onLookupMusicBrainz}
+					>
+						{lookupPending ? 'Looking up…' : 'Lookup MusicBrainz'}
+					</button>
+					<button
+						type="button"
+						class="border-border bg-surface-muted hover:border-accent min-h-touch rounded-card border px-5 text-base font-semibold disabled:opacity-60"
+						disabled={$submitting || lookupPending || coverPending || !releaseMbid}
+						onclick={onApplyCover}
+					>
+						{coverPending ? 'Applying cover…' : 'Apply cover'}
+					</button>
+				{:else}
+					<a
+						href={resolve('/settings')}
+						class="border-border bg-surface-muted hover:border-accent inline-flex min-h-touch items-center rounded-card border px-5 text-base font-semibold"
+					>
+						Set MusicBrainz contact in Settings
+					</a>
+				{/if}
 				<button
 					type="submit"
 					class="bg-accent text-text hover:bg-accent-strong min-h-touch rounded-card px-5 text-base font-semibold disabled:opacity-60"

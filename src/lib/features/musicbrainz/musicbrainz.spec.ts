@@ -1,0 +1,256 @@
+import { describe, expect, it } from 'vitest';
+import {
+	hasMusicBrainzContact,
+	loadMusicBrainzSettings,
+	MB_APPLY_COVER_STORAGE_KEY,
+	MB_CONTACT_STORAGE_KEY,
+	saveMusicBrainzSettings
+} from './settings';
+import { buildMusicBrainzUserAgent, EMPEROR_MB_APP } from './userAgent';
+import {
+	buildRecordingQuery,
+	buildReleaseQuery,
+	mapRecordingToTrackForm,
+	mapReleaseToAlbumForm,
+	normalizeMbDate
+} from './mapToForm';
+import {
+	createMusicBrainzClient,
+	COVER_ART_ARCHIVE_BASE,
+	MUSICBRAINZ_API_BASE,
+	MusicBrainzError
+} from './client';
+import { lookupAlbumMetadata, lookupTrackMetadata } from './lookup';
+import { applyAlbumCoverFromMusicBrainz } from './applyCover';
+import {
+	albumFixture,
+	createFetchStub,
+	jsonResponse,
+	libraryStatusFixture
+} from '$lib/test/fixtures';
+
+function memoryStorage(initial: Record<string, string> = {}): Storage {
+	const map = new Map(Object.entries(initial));
+	return {
+		get length() {
+			return map.size;
+		},
+		clear() {
+			map.clear();
+		},
+		getItem(key) {
+			return map.has(key) ? map.get(key)! : null;
+		},
+		key(index) {
+			return [...map.keys()][index] ?? null;
+		},
+		removeItem(key) {
+			map.delete(key);
+		},
+		setItem(key, value) {
+			map.set(key, value);
+		}
+	};
+}
+
+describe('musicbrainz settings + user agent', () => {
+	it('persists contact and apply-cover toggle', () => {
+		const storage = memoryStorage();
+		expect(hasMusicBrainzContact(storage)).toBe(false);
+
+		saveMusicBrainzSettings({ contact: 'dev@example.com', applyCoverOnLookup: true }, storage);
+		expect(storage.getItem(MB_CONTACT_STORAGE_KEY)).toBe('dev@example.com');
+		expect(storage.getItem(MB_APPLY_COVER_STORAGE_KEY)).toBe('1');
+		expect(loadMusicBrainzSettings(storage)).toEqual({
+			contact: 'dev@example.com',
+			applyCoverOnLookup: true
+		});
+		expect(hasMusicBrainzContact(storage)).toBe(true);
+	});
+
+	it('builds Emperor User-Agent with contact', () => {
+		expect(buildMusicBrainzUserAgent('https://example.com')).toBe(
+			`${EMPEROR_MB_APP} (https://example.com)`
+		);
+		expect(() => buildMusicBrainzUserAgent('  ')).toThrow(/contact/i);
+	});
+});
+
+describe('musicbrainz mapToForm', () => {
+	it('maps recording and release payloads into form fields', () => {
+		const track = mapRecordingToTrackForm({
+			id: 'rec-1',
+			title: 'Jade',
+			'artist-credit': [{ name: 'XTC' }],
+			releases: [
+				{
+					id: 'rel-1',
+					title: 'English Settlement',
+					date: '1982-02-12',
+					media: [{ position: 1, track: [{ position: 3, number: '3' }] }]
+				}
+			],
+			tags: [
+				{ name: 'new wave', count: 2 },
+				{ name: 'rock', count: 5 }
+			]
+		});
+		expect(track).toEqual({
+			recordingMbid: 'rec-1',
+			releaseMbid: 'rel-1',
+			form: {
+				title: 'Jade',
+				artist: 'XTC',
+				album: 'English Settlement',
+				release_date: '1982-02-12',
+				genre: 'rock',
+				track_number: '3',
+				disc_number: '1'
+			}
+		});
+
+		const album = mapReleaseToAlbumForm({
+			id: 'rel-2',
+			title: 'Skylarking',
+			date: '1986',
+			'artist-credit': [{ artist: { name: 'XTC' } }],
+			tags: [{ name: 'pop', count: 1 }]
+		});
+		expect(album.form).toMatchObject({
+			name: 'Skylarking',
+			artist: 'XTC',
+			release_date: '1986',
+			genre: 'pop'
+		});
+	});
+
+	it('normalizes dates and builds search queries', () => {
+		expect(normalizeMbDate('1999-05')).toBe('1999-05');
+		expect(normalizeMbDate('1999-05-01T00:00:00Z')).toBe('1999');
+		expect(buildRecordingQuery({ title: 'A', artist: 'B', album: 'C' })).toContain('recording:"A"');
+		expect(buildReleaseQuery({ name: 'Album', artist: 'Artist' })).toContain('release:"Album"');
+	});
+});
+
+describe('musicbrainz client (stubbed fetch)', () => {
+	const contact = 'ci@example.com';
+
+	it('searches recordings and releases with User-Agent', async () => {
+		let seenUa: string | null = null;
+		const fetchImpl = createFetchStub([
+			{
+				url: new RegExp(`^${MUSICBRAINZ_API_BASE}/recording`),
+				response: () => {
+					return jsonResponse({
+						recordings: [{ id: 'r1', title: 'Song', 'artist-credit': [{ name: 'A' }] }]
+					});
+				}
+			},
+			{
+				url: new RegExp(`^${MUSICBRAINZ_API_BASE}/release`),
+				response: () =>
+					jsonResponse({
+						releases: [{ id: 'rel1', title: 'Album', 'artist-credit': [{ name: 'A' }] }]
+					})
+			}
+		]);
+
+		const wrapped: typeof fetch = async (input, init) => {
+			seenUa = new Headers(init?.headers).get('User-Agent');
+			return fetchImpl(input, init);
+		};
+
+		const mb = createMusicBrainzClient({ contact, fetch: wrapped });
+		const recordings = await mb.searchRecordings('recording:"Song"');
+		expect(recordings[0]?.id).toBe('r1');
+		expect(seenUa).toBe(buildMusicBrainzUserAgent(contact));
+
+		const releases = await mb.searchReleases('release:"Album"');
+		expect(releases[0]?.id).toBe('rel1');
+	});
+
+	it('fetches CAA front cover bytes', async () => {
+		const bytes = new Uint8Array([1, 2, 3]);
+		const mb = createMusicBrainzClient({
+			contact,
+			fetch: createFetchStub([
+				{
+					url: `${COVER_ART_ARCHIVE_BASE}/release/rel-1/front`,
+					response: new Response(bytes, {
+						status: 200,
+						headers: { 'Content-Type': 'image/jpeg' }
+					})
+				}
+			])
+		});
+
+		const cover = await mb.fetchFrontCover('rel-1');
+		expect(cover.contentType).toBe('image/jpeg');
+		expect(await cover.blob.arrayBuffer()).toEqual(bytes.buffer);
+	});
+
+	it('rejects missing contact', () => {
+		expect(() => createMusicBrainzClient({ contact: '' })).toThrow(MusicBrainzError);
+	});
+});
+
+describe('musicbrainz lookup helpers', () => {
+	it('returns empty when no recordings match', async () => {
+		const outcome = await lookupTrackMetadata(
+			{ searchRecordings: async () => [] },
+			{ title: 'Nope', artist: 'Nobody', album: '' }
+		);
+		expect(outcome).toEqual({ kind: 'empty' });
+	});
+
+	it('maps first album release', async () => {
+		const outcome = await lookupAlbumMetadata(
+			{
+				searchReleases: async () => [
+					{ id: 'rel', title: 'LP', 'artist-credit': [{ name: 'Band' }], date: '2020' }
+				]
+			},
+			{ name: 'LP', artist: 'Band' }
+		);
+		expect(outcome.kind).toBe('ok');
+		if (outcome.kind === 'ok') {
+			expect(outcome.result.releaseMbid).toBe('rel');
+			expect(outcome.result.form.name).toBe('LP');
+		}
+	});
+});
+
+describe('applyAlbumCoverFromMusicBrainz', () => {
+	it('uploads cover, waits for scan idle, refetches album', async () => {
+		const album = albumFixture({ id: 7, cover_id: 99 });
+		let uploads = 0;
+		let statusCalls = 0;
+		const result = await applyAlbumCoverFromMusicBrainz({
+			mb: {
+				fetchFrontCover: async () => ({
+					blob: new Blob([new Uint8Array([9])], { type: 'image/png' }),
+					contentType: 'image/png'
+				})
+			},
+			media: {
+				uploadAlbumCover: async () => {
+					uploads += 1;
+					return { ok: true as const, path: 'cover.png', scan: 'started' };
+				},
+				getLibraryStatus: async () => {
+					statusCalls += 1;
+					return libraryStatusFixture({ scanning: statusCalls < 2 });
+				},
+				getAlbum: async () => album
+			},
+			albumId: 7,
+			releaseMbid: 'rel-1',
+			pollIntervalMs: 1,
+			sleep: async () => undefined
+		});
+
+		expect(result).toEqual({ kind: 'ok', album });
+		expect(uploads).toBe(1);
+		expect(statusCalls).toBeGreaterThanOrEqual(2);
+	});
+});

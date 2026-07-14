@@ -9,6 +9,7 @@ import {
 	albumPageSchema,
 	albumSchema,
 	albumPatchResponseSchema,
+	albumCoverUploadResponseSchema,
 	artistPageSchema,
 	artistSchema,
 	errorBodySchema,
@@ -21,6 +22,7 @@ import {
 	trackPageSchema,
 	trackSchema,
 	type Album,
+	type AlbumCoverUploadResponse,
 	type AlbumMetadataPatch,
 	type AlbumPage,
 	type AlbumPatchResponse,
@@ -78,6 +80,12 @@ export type MediaServerClient = {
 		patch: AlbumMetadataPatch,
 		signal?: AbortSignal
 	) => Promise<AlbumPatchResponse>;
+	uploadAlbumCover: (
+		id: number,
+		blob: Blob,
+		contentType: string,
+		signal?: AbortSignal
+	) => Promise<AlbumCoverUploadResponse>;
 	getAlbumTracks: (id: number, query?: PaginationQuery) => Promise<TrackPage>;
 	search: (query: SearchQuery) => Promise<SearchResponse>;
 	getDiscoverRandom: (query?: PaginationQuery) => Promise<TrackPage>;
@@ -258,6 +266,16 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 		updateAlbum: (id, patch, signal) =>
 			requestJson(`/api/albums/${id}`, albumPatchResponseSchema, {
 				...jsonMutation('PATCH', patch),
+				signal
+			}),
+		uploadAlbumCover: (id, blob, contentType, signal) =>
+			requestJson(`/api/albums/${id}/cover`, albumCoverUploadResponseSchema, {
+				method: 'PUT',
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': contentType
+				},
+				body: blob,
 				signal
 			}),
 		getAlbumTracks: (id, query = {}) => getTrackPage(`/api/albums/${id}/tracks`, query),

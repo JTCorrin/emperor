@@ -30,6 +30,8 @@ describe('NowPlayingOverlay', () => {
 
 		const close = page.getByRole('button', { name: 'Close' });
 		await expect.element(close).toHaveFocus();
+		await expect.element(page.getByRole('button', { name: 'Shuffle off' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Repeat off' })).toBeVisible();
 		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
 		expect(document.activeElement).toBe(priorFocus);

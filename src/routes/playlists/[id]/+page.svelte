@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { fromAction } from 'svelte/attachments';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import type { ResolvedPathname } from '$app/types';
 	import { defaults, superForm } from 'sveltekit-superforms';
 	import { zod4 } from 'sveltekit-superforms/adapters';
 	import {
@@ -16,6 +17,7 @@
 	import TrackRow from '$lib/components/media/TrackRow.svelte';
 	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
 	import { loadAllPages } from '$lib/features/browse/loadAllPages';
+	import { getBackTarget, setNavTrailLabel } from '$lib/navigation/navTrail';
 	import { getAddToPlaylist, getConnection, getFavourites, getPlayer } from '$lib/state/context';
 
 	const connection = getConnection();
@@ -23,6 +25,29 @@
 	const favourites = getFavourites();
 	const addToPlaylist = getAddToPlaylist();
 	const playlistId = $derived(Number(page.params.id));
+	const currentPath = $derived(`${page.url.pathname}${page.url.search}`);
+	const fallbackBack = { href: '/playlists', label: 'playlists' };
+	let clientReady = $state(0);
+
+	onMount(() => {
+		clientReady = 1;
+	});
+
+	const backTarget = $derived.by(() => {
+		void clientReady;
+		return getBackTarget({
+			fallbackHref: fallbackBack.href,
+			fallbackLabel: fallbackBack.label,
+			currentPath
+		});
+	});
+	const backHref = $derived.by((): ResolvedPathname => {
+		const href = backTarget.href;
+		const q = href.indexOf('?');
+		const pathname = (q >= 0 ? href.slice(0, q) : href) || '/';
+		const search = q >= 0 ? href.slice(q) : '';
+		return `${resolve(pathname as '/')}${search}` as ResolvedPathname;
+	});
 
 	let playlist = $state.raw<Playlist | null>(null);
 	let tracks = $state.raw<Track[]>([]);
@@ -110,6 +135,7 @@
 			renameData.set({ name: meta.name });
 			status = 'ready';
 			editing = false;
+			setNavTrailLabel(currentPath, meta.name);
 		} catch (cause) {
 			if (token !== loadToken) return;
 			if (cause instanceof MediaServerRequestError && cause.error.kind === 'aborted') return;
@@ -227,10 +253,10 @@
 
 <section class="flex flex-1 flex-col gap-6 pb-4" {@attach loadPlaylistWhenConnected}>
 	<a
-		href={resolve('/playlists')}
+		href={backHref}
 		class="text-text-muted hover:text-text min-h-touch inline-flex w-fit items-center text-base font-medium"
 	>
-		Back to playlists
+		Back to {backTarget.label}
 	</a>
 
 	{#if connection.status !== 'connected'}

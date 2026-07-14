@@ -32,6 +32,10 @@
 		<p class="text-text-muted max-w-2xl text-base">
 			If Emperor uses HTTPS, your browser may block an HTTP media server as mixed content.
 		</p>
+		<p class="text-text-muted max-w-2xl text-base">
+			<a class="text-accent-strong underline" href={resolve('/settings')}>Settings</a> — MusicBrainz contact
+			(User-Agent) for metadata lookup and optional Cover Art Archive apply.
+		</p>
 	</div>
 
 	<ConnectionStatusBar {connection} />

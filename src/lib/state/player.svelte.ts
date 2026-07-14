@@ -6,9 +6,20 @@ import {
 	type MediaServerClient,
 	type Track
 } from '$lib/api';
-import { nextQueueIndex, previousQueueIndex, replaceQueue, shouldRecordHistory } from './queue';
+import {
+	buildShuffleOrder,
+	canResolveNext,
+	canResolvePrevious,
+	replaceQueue,
+	resolveNextIndex,
+	resolvePreviousIndex,
+	shouldRecordHistory,
+	type RepeatMode
+} from './queue';
 
 export type PlaybackStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'ended' | 'error';
+
+export type { RepeatMode };
 
 export type PlayerControllerOptions = {
 	getBaseUrl: () => string | null;
@@ -31,6 +42,8 @@ type AudioLike = Pick<
 	| 'removeEventListener'
 >;
 
+const REPEAT_CYCLE: RepeatMode[] = ['off', 'all', 'one'];
+
 export class PlayerController {
 	queue = $state.raw<Track[]>([]);
 	index = $state(-1);
@@ -39,6 +52,9 @@ export class PlayerController {
 	duration = $state(0);
 	expanded = $state(false);
 	errorMessage = $state<string | null>(null);
+	shuffle = $state(false);
+	repeat = $state<RepeatMode>('off');
+	shuffleOrder = $state.raw<number[]>([]);
 
 	#audio: AudioLike | null = null;
 	#getBaseUrl: () => string | null;
@@ -66,6 +82,14 @@ export class PlayerController {
 		return this.queue.length > 0;
 	}
 
+	get canGoNext(): boolean {
+		return canResolveNext(this.#resolveOptions());
+	}
+
+	get canGoPrevious(): boolean {
+		return canResolvePrevious(this.#resolveOptions());
+	}
+
 	attachAudio(audio: AudioLike): void {
 		if (this.#audio === audio) return;
 		this.#detachListeners();
@@ -82,6 +106,7 @@ export class PlayerController {
 		this.index = next.index;
 		this.errorMessage = null;
 		this.#historyRecordedForTrackId = null;
+		this.#syncShuffleOrder();
 		if (!next.current) {
 			this.playbackStatus = 'idle';
 			this.position = 0;
@@ -93,6 +118,16 @@ export class PlayerController {
 
 	updateTrackInQueue(updated: Track): void {
 		this.queue = this.queue.map((track) => (track.id === updated.id ? updated : track));
+	}
+
+	toggleShuffle(): void {
+		this.shuffle = !this.shuffle;
+		this.#syncShuffleOrder();
+	}
+
+	cycleRepeat(): void {
+		const i = REPEAT_CYCLE.indexOf(this.repeat);
+		this.repeat = REPEAT_CYCLE[(i + 1) % REPEAT_CYCLE.length] ?? 'off';
 	}
 
 	async play(): Promise<void> {
@@ -124,15 +159,19 @@ export class PlayerController {
 	}
 
 	next(): void {
-		const next = nextQueueIndex(this.index, this.queue.length);
+		const next = resolveNextIndex(this.#resolveOptions());
 		if (next === null) return;
+		if (next === this.index) {
+			this.#restartCurrent();
+			return;
+		}
 		this.index = next;
 		this.#historyRecordedForTrackId = null;
 		void this.#loadCurrent(true);
 	}
 
 	previous(): void {
-		const previous = previousQueueIndex(this.index, this.queue.length);
+		const previous = resolvePreviousIndex(this.#resolveOptions());
 		if (previous === null) return;
 		this.index = previous;
 		this.#historyRecordedForTrackId = null;
@@ -158,6 +197,33 @@ export class PlayerController {
 		this.#detachListeners();
 		this.#audio = null;
 		this.#loadToken += 1;
+	}
+
+	#resolveOptions() {
+		return {
+			index: this.index,
+			length: this.queue.length,
+			repeat: this.repeat,
+			shuffle: this.shuffle,
+			shuffleOrder: this.shuffleOrder
+		};
+	}
+
+	#syncShuffleOrder(): void {
+		if (!this.shuffle || this.queue.length === 0 || this.index < 0) {
+			this.shuffleOrder = [];
+			return;
+		}
+		this.shuffleOrder = buildShuffleOrder(this.queue.length, this.index);
+	}
+
+	#restartCurrent(): void {
+		this.#historyRecordedForTrackId = null;
+		if (this.#audio) {
+			this.#audio.currentTime = 0;
+			this.position = 0;
+		}
+		void this.play();
 	}
 
 	async #loadCurrent(autoplay: boolean): Promise<void> {
@@ -236,9 +302,13 @@ export class PlayerController {
 	};
 
 	#onEnded = (): void => {
-		const next = nextQueueIndex(this.index, this.queue.length);
+		const next = resolveNextIndex(this.#resolveOptions());
 		if (next === null) {
 			this.playbackStatus = 'ended';
+			return;
+		}
+		if (next === this.index) {
+			this.#restartCurrent();
 			return;
 		}
 		this.index = next;

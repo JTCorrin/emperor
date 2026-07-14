@@ -31,6 +31,16 @@ describe('CompactPlayer', () => {
 		await page.getByRole('button', { name: 'Next track' }).click();
 		expect(next).toHaveBeenCalled();
 
+		await expect.element(page.getByRole('button', { name: 'Shuffle off' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Repeat off' })).toBeVisible();
+
+		const toggleShuffle = vi.spyOn(player, 'toggleShuffle');
+		const cycleRepeat = vi.spyOn(player, 'cycleRepeat');
+		await page.getByRole('button', { name: 'Shuffle off' }).click();
+		expect(toggleShuffle).toHaveBeenCalled();
+		await page.getByRole('button', { name: 'Repeat off' }).click();
+		expect(cycleRepeat).toHaveBeenCalled();
+
 		await page.getByRole('button', { name: 'Expand player: Alpha' }).click();
 		expect(expand).toHaveBeenCalled();
 	});

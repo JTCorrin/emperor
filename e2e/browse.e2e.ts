@@ -150,10 +150,13 @@ test.describe('browse and search', () => {
 
 		await page.goto('/search?q=browse');
 		await expect(page.getByText('Results for “browse”')).toBeVisible({ timeout: 15_000 });
-		await expect(page.getByRole('button', { name: /Browse Track/ })).toBeVisible();
+		await expect(page.getByRole('button', { name: /Browse Track/ }).first()).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Artists' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Albums' })).toBeVisible();
-		await page.getByRole('button', { name: /Browse Track/ }).click();
+		await page
+			.getByRole('button', { name: /Browse Track/ })
+			.first()
+			.click();
 		await expect(page.getByLabel('Now playing')).toContainText('Browse Track');
 	});
 

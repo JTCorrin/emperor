@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { defaults, superForm } from 'sveltekit-superforms';
 	import { zod4 } from 'sveltekit-superforms/adapters';
 	import {
@@ -9,6 +10,9 @@
 		type TrackMetadataForm,
 		type TrackMetadataPatch
 	} from '$lib/api';
+	import { createMusicBrainzClient } from '$lib/features/musicbrainz/client';
+	import { lookupTrackMetadata } from '$lib/features/musicbrainz/lookup';
+	import { loadMusicBrainzSettings } from '$lib/features/musicbrainz/settings';
 	import { getConnection } from '$lib/state/context';
 	import OverriddenFields from './OverriddenFields.svelte';
 	import { buildTrackPatch, trackToFormValues } from './patchBuilders';
@@ -25,8 +29,11 @@
 
 	let dialog: HTMLDialogElement | undefined = $state();
 	let saveError = $state<string | null>(null);
+	let lookupError = $state<string | null>(null);
+	let lookupPending = $state(false);
 	let cleared = $state<Partial<Record<keyof TrackMetadataPatch, boolean>>>({});
 	let formTrackId = $state<number | null>(null);
+	let mbContact = $state('');
 
 	const { form, errors, enhance, submitting, reset } = superForm(
 		defaults(emptyForm(), zod4(trackMetadataFormSchema)),
@@ -77,6 +84,7 @@
 	function closeDialog() {
 		dialog?.close();
 		saveError = null;
+		lookupError = null;
 		cleared = {};
 		onclose?.();
 	}
@@ -93,6 +101,45 @@
 		}
 	}
 
+	async function onLookupMusicBrainz() {
+		lookupError = null;
+		const settings = loadMusicBrainzSettings();
+		mbContact = settings.contact;
+		if (!settings.contact) {
+			lookupError = 'Set a MusicBrainz contact in Settings before looking up.';
+			return;
+		}
+
+		lookupPending = true;
+		try {
+			const mb = createMusicBrainzClient({ contact: settings.contact });
+			const outcome = await lookupTrackMetadata(mb, {
+				title: $form.title,
+				artist: $form.artist,
+				album: $form.album
+			});
+			if (outcome.kind === 'empty') {
+				lookupError = 'No MusicBrainz recording matched the current fields.';
+				return;
+			}
+			if (outcome.kind === 'error') {
+				lookupError = outcome.message;
+				return;
+			}
+			const next = outcome.result.form;
+			cleared = {};
+			$form.title = next.title ?? $form.title;
+			$form.artist = next.artist ?? $form.artist;
+			$form.album = next.album ?? $form.album;
+			$form.release_date = next.release_date ?? $form.release_date;
+			$form.genre = next.genre ?? $form.genre;
+			$form.track_number = next.track_number ?? $form.track_number;
+			$form.disc_number = next.disc_number ?? $form.disc_number;
+		} finally {
+			lookupPending = false;
+		}
+	}
+
 	$effect(() => {
 		const next = track;
 		if (next) {
@@ -100,6 +147,8 @@
 				formTrackId = next.id;
 				cleared = {};
 				saveError = null;
+				lookupError = null;
+				mbContact = loadMusicBrainzSettings().contact;
 				reset({ data: trackToFormValues(next) });
 			}
 			queueMicrotask(() => {
@@ -118,6 +167,7 @@
 	aria-labelledby="track-metadata-title"
 	onclose={() => {
 		saveError = null;
+		lookupError = null;
 		cleared = {};
 		onclose?.();
 	}}
@@ -163,11 +213,31 @@
 				</div>
 			{/each}
 
+			{#if lookupError}
+				<p class="text-danger text-base" role="alert">{lookupError}</p>
+			{/if}
 			{#if saveError}
 				<p class="text-danger text-base" role="alert">{saveError}</p>
 			{/if}
 
 			<div class="flex flex-wrap gap-3">
+				{#if mbContact}
+					<button
+						type="button"
+						class="border-border bg-surface-muted hover:border-accent min-h-touch rounded-card border px-5 text-base font-semibold disabled:opacity-60"
+						disabled={$submitting || lookupPending}
+						onclick={onLookupMusicBrainz}
+					>
+						{lookupPending ? 'Looking up…' : 'Lookup MusicBrainz'}
+					</button>
+				{:else}
+					<a
+						href={resolve('/settings')}
+						class="border-border bg-surface-muted hover:border-accent inline-flex min-h-touch items-center rounded-card border px-5 text-base font-semibold"
+					>
+						Set MusicBrainz contact in Settings
+					</a>
+				{/if}
 				<button
 					type="submit"
 					class="bg-accent text-text hover:bg-accent-strong min-h-touch rounded-card px-5 text-base font-semibold disabled:opacity-60"

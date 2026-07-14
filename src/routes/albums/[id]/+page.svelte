@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import type { ResolvedPathname } from '$app/types';
 	import CoverArt from '$lib/components/media/CoverArt.svelte';
 	import LoadMoreButton from '$lib/components/media/LoadMoreButton.svelte';
 	import TrackRow from '$lib/components/media/TrackRow.svelte';
@@ -18,6 +19,7 @@
 	import { sortAlbumTracks } from '$lib/features/browse/albumTracks';
 	import { PaginatedListController } from '$lib/features/browse/paginatedList.svelte';
 	import { refetchAlbumAfterPatch } from '$lib/features/metadata/albumRegroup';
+	import { getBackTarget, setNavTrailLabel } from '$lib/navigation/navTrail';
 	import { getAddToPlaylist, getConnection, getPlayer } from '$lib/state/context';
 
 	const connection = getConnection();
@@ -25,6 +27,29 @@
 	const addToPlaylist = getAddToPlaylist();
 
 	const albumId = $derived(Number(page.params.id));
+	const currentPath = $derived(`${page.url.pathname}${page.url.search}`);
+	const fallbackBack = { href: '/albums', label: 'albums' };
+	let clientReady = $state(0);
+
+	onMount(() => {
+		clientReady = 1;
+	});
+
+	const backTarget = $derived.by(() => {
+		void clientReady;
+		return getBackTarget({
+			fallbackHref: fallbackBack.href,
+			fallbackLabel: fallbackBack.label,
+			currentPath
+		});
+	});
+	const backHref = $derived.by((): ResolvedPathname => {
+		const href = backTarget.href;
+		const q = href.indexOf('?');
+		const pathname = (q >= 0 ? href.slice(0, q) : href) || '/';
+		const search = q >= 0 ? href.slice(q) : '';
+		return `${resolve(pathname as '/')}${search}` as ResolvedPathname;
+	});
 
 	let album = $state.raw<Album | null>(null);
 	let albumStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -66,6 +91,7 @@
 			if (token !== albumToken) return;
 			album = next;
 			albumStatus = 'ready';
+			setNavTrailLabel(currentPath, next.name);
 		} catch (cause) {
 			if (token !== albumToken) return;
 			if (cause instanceof MediaServerRequestError && cause.error.kind === 'aborted') return;
@@ -139,10 +165,10 @@
 
 <section class="flex flex-1 flex-col gap-6 pb-4">
 	<a
-		href={resolve('/albums')}
+		href={backHref}
 		class="text-text-muted hover:text-text min-h-touch inline-flex w-fit items-center text-base font-medium"
 	>
-		Back to albums
+		Back to {backTarget.label}
 	</a>
 
 	{#if connection.status !== 'connected'}
@@ -270,6 +296,11 @@
 		editingAlbum = null;
 		album = next;
 		void loadTracks();
+	}}
+	onalbumupdated={(next) => {
+		// Update page album only — replacing editingAlbum remounts the dialog
+		// attachment and closes it before the cover status is observable.
+		album = next;
 	}}
 	onclose={() => {
 		editingAlbum = null;

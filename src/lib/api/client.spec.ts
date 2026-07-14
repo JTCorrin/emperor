@@ -284,6 +284,38 @@ describe('createMediaServerClient', () => {
 		expect(scanUrl).toBe(`${baseUrl}/api/library/scan?force=1`);
 	});
 
+	it('uploads album cover with raw image body', async () => {
+		const bytes = new Uint8Array([0xff, 0xd8, 0xff]);
+		let contentType: string | null = null;
+		let bodyBytes: ArrayBuffer | null = null;
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: async (input, init) => {
+				expect(String(input)).toBe(`${baseUrl}/api/albums/7/cover`);
+				expect(init?.method).toBe('PUT');
+				contentType = new Headers(init?.headers).get('Content-Type');
+				const body = init?.body;
+				if (body instanceof Blob) {
+					bodyBytes = await body.arrayBuffer();
+				}
+				return jsonResponse(
+					{ ok: true, path: 'Artist/Album/cover.jpg', scan: 'started' },
+					{ status: 202 }
+				);
+			}
+		});
+
+		await expect(
+			client.uploadAlbumCover(7, new Blob([bytes], { type: 'image/jpeg' }), 'image/jpeg')
+		).resolves.toEqual({
+			ok: true,
+			path: 'Artist/Album/cover.jpg',
+			scan: 'started'
+		});
+		expect(contentType).toBe('image/jpeg');
+		expect(bodyBytes).toEqual(bytes.buffer);
+	});
+
 	it('maps 409 when a library scan is already running', async () => {
 		const client = createMediaServerClient({
 			baseUrl,

@@ -90,6 +90,98 @@ describe('PlayerController', () => {
 		expect(player.playbackStatus).toBe('ended');
 	});
 
+	it('cycles repeat and wraps the queue when repeat is all', async () => {
+		const audio = createMockAudio();
+		const player = new PlayerController({
+			getBaseUrl: () => 'http://127.0.0.1:8080'
+		});
+		player.attachAudio(audio);
+		player.playTracks(
+			[trackFixture({ id: 1 }), trackFixture({ id: 2 }), trackFixture({ id: 3 })],
+			2
+		);
+		await vi.waitFor(() => expect(player.playbackStatus).toBe('playing'));
+
+		expect(player.repeat).toBe('off');
+		expect(player.canGoNext).toBe(false);
+		player.cycleRepeat();
+		expect(player.repeat).toBe('all');
+		expect(player.canGoNext).toBe(true);
+		expect(player.canGoPrevious).toBe(true);
+
+		player.next();
+		expect(player.currentTrack?.id).toBe(1);
+
+		audio.dispatch('ended');
+		expect(player.currentTrack?.id).toBe(2);
+
+		player.cycleRepeat();
+		expect(player.repeat).toBe('one');
+		player.cycleRepeat();
+		expect(player.repeat).toBe('off');
+	});
+
+	it('restarts the current track when repeat is one', async () => {
+		const audio = createMockAudio();
+		const player = new PlayerController({
+			getBaseUrl: () => 'http://127.0.0.1:8080'
+		});
+		player.attachAudio(audio);
+		player.playTracks([trackFixture({ id: 1 }), trackFixture({ id: 2 })], 0);
+		await vi.waitFor(() => expect(player.playbackStatus).toBe('playing'));
+
+		player.cycleRepeat();
+		player.cycleRepeat();
+		expect(player.repeat).toBe('one');
+		expect(player.canGoNext).toBe(true);
+
+		audio.currentTime = 40;
+		player.position = 40;
+		player.next();
+		expect(player.currentTrack?.id).toBe(1);
+		expect(audio.currentTime).toBe(0);
+
+		audio.currentTime = 50;
+		audio.dispatch('ended');
+		expect(player.currentTrack?.id).toBe(1);
+		expect(audio.currentTime).toBe(0);
+		await vi.waitFor(() => expect(player.playbackStatus).toBe('playing'));
+	});
+
+	it('builds a shuffle order with the current track first', async () => {
+		const audio = createMockAudio();
+		const player = new PlayerController({
+			getBaseUrl: () => 'http://127.0.0.1:8080'
+		});
+		player.attachAudio(audio);
+		player.playTracks(
+			[
+				trackFixture({ id: 1 }),
+				trackFixture({ id: 2 }),
+				trackFixture({ id: 3 }),
+				trackFixture({ id: 4 })
+			],
+			2
+		);
+		await vi.waitFor(() => expect(player.playbackStatus).toBe('playing'));
+
+		expect(player.shuffle).toBe(false);
+		expect(player.shuffleOrder).toEqual([]);
+		player.toggleShuffle();
+		expect(player.shuffle).toBe(true);
+		expect(player.shuffleOrder[0]).toBe(2);
+		expect(player.shuffleOrder).toHaveLength(4);
+		expect(new Set(player.shuffleOrder)).toEqual(new Set([0, 1, 2, 3]));
+
+		const firstNext = player.shuffleOrder[1]!;
+		player.next();
+		expect(player.index).toBe(firstNext);
+
+		player.toggleShuffle();
+		expect(player.shuffle).toBe(false);
+		expect(player.shuffleOrder).toEqual([]);
+	});
+
 	it('records history once after the threshold and soft-fails no_user_db', async () => {
 		const baseUrl = 'http://127.0.0.1:8080';
 		let historyCalls = 0;

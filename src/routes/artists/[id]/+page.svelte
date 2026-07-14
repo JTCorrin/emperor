@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import type { ResolvedPathname } from '$app/types';
 	import LoadMoreButton from '$lib/components/media/LoadMoreButton.svelte';
 	import MediaCard from '$lib/components/media/MediaCard.svelte';
 	import MediaGrid from '$lib/components/media/MediaGrid.svelte';
@@ -14,10 +15,34 @@
 		type Artist
 	} from '$lib/api';
 	import { PaginatedListController } from '$lib/features/browse/paginatedList.svelte';
+	import { getBackTarget, setNavTrailLabel } from '$lib/navigation/navTrail';
 	import { getConnection } from '$lib/state/context';
 
 	const connection = getConnection();
 	const artistId = $derived(Number(page.params.id));
+	const currentPath = $derived(`${page.url.pathname}${page.url.search}`);
+	const fallbackBack = { href: '/artists', label: 'artists' };
+	let clientReady = $state(0);
+
+	onMount(() => {
+		clientReady = 1;
+	});
+
+	const backTarget = $derived.by(() => {
+		void clientReady;
+		return getBackTarget({
+			fallbackHref: fallbackBack.href,
+			fallbackLabel: fallbackBack.label,
+			currentPath
+		});
+	});
+	const backHref = $derived.by((): ResolvedPathname => {
+		const href = backTarget.href;
+		const q = href.indexOf('?');
+		const pathname = (q >= 0 ? href.slice(0, q) : href) || '/';
+		const search = q >= 0 ? href.slice(q) : '';
+		return `${resolve(pathname as '/')}${search}` as ResolvedPathname;
+	});
 
 	let artist = $state.raw<Artist | null>(null);
 	let artistStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -57,6 +82,7 @@
 			if (token !== artistToken) return;
 			artist = next;
 			artistStatus = 'ready';
+			setNavTrailLabel(currentPath, next.name);
 		} catch (cause) {
 			if (token !== artistToken) return;
 			if (cause instanceof MediaServerRequestError && cause.error.kind === 'aborted') return;
@@ -83,10 +109,10 @@
 
 <section class="flex flex-1 flex-col gap-6 pb-4">
 	<a
-		href={resolve('/artists')}
+		href={backHref}
 		class="text-text-muted hover:text-text min-h-touch inline-flex w-fit items-center text-base font-medium"
 	>
-		Back to artists
+		Back to {backTarget.label}
 	</a>
 
 	{#if connection.status !== 'connected'}
