@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
+	import logo from '$lib/assets/logo.png';
 	import CompactPlayer from '$lib/components/player/CompactPlayer.svelte';
 	import OfflineBanner from '$lib/components/ui/OfflineBanner.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -74,7 +75,9 @@
 >
 	<header class="border-border bg-surface/90 sticky top-0 z-10 border-b backdrop-blur">
 		<div class="flex flex-wrap items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
-			<a href={resolve('/')} class="shrink-0 text-2xl font-semibold tracking-tight">Emperor</a>
+			<a href={resolve('/')} class="shrink-0">
+				<img src={logo} alt="Emperor" class="h-7 w-auto sm:h-8" />
+			</a>
 			<SearchField />
 		</div>
 		<TabBar />

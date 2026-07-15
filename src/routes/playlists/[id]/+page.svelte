@@ -69,6 +69,9 @@
 	let addTimer: ReturnType<typeof setTimeout> | null = null;
 	let addAbort: AbortController | null = null;
 	let addToken = 0;
+	let draggedIndex = $state<number | null>(null);
+	let dropTargetIndex = $state<number | null>(null);
+	let reorderAnnouncement = $state('');
 
 	const renameForm = superForm(defaults({ name: '' }, zod4(playlistNameBodySchema)), {
 		SPA: true,
@@ -160,6 +163,7 @@
 		draftIds = tracks.map((t) => t.id);
 		draftTracks = [...tracks];
 		editing = true;
+		resetDragState();
 		mutationError = null;
 		addQuery = '';
 		addResults = [];
@@ -170,6 +174,7 @@
 		editing = false;
 		draftIds = tracks.map((t) => t.id);
 		draftTracks = [...tracks];
+		resetDragState();
 		mutationError = null;
 		addQuery = '';
 		addResults = [];
@@ -186,9 +191,62 @@
 		draftTracks = [...draftTracks, track];
 	}
 
+	function resetDragState() {
+		draggedIndex = null;
+		dropTargetIndex = null;
+	}
+
+	function moveDraftTrack(fromIndex: number, toIndex: number) {
+		if (
+			saving ||
+			fromIndex === toIndex ||
+			fromIndex < 0 ||
+			toIndex < 0 ||
+			fromIndex >= draftTracks.length ||
+			toIndex >= draftTracks.length
+		) {
+			return;
+		}
+
+		const reorderedTracks = [...draftTracks];
+		const [movedTrack] = reorderedTracks.splice(fromIndex, 1);
+		reorderedTracks.splice(toIndex, 0, movedTrack);
+		draftTracks = reorderedTracks;
+		draftIds = reorderedTracks.map((track) => track.id);
+		reorderAnnouncement = `${movedTrack.title} moved to position ${toIndex + 1} of ${reorderedTracks.length}.`;
+	}
+
+	function handleDragStart(event: DragEvent, index: number) {
+		if (saving) {
+			event.preventDefault();
+			return;
+		}
+
+		draggedIndex = index;
+		dropTargetIndex = index;
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = 'move';
+			event.dataTransfer.setData('text/plain', String(draftTracks[index].id));
+		}
+	}
+
+	function handleDragOver(event: DragEvent, index: number) {
+		if (saving || draggedIndex === null) return;
+		event.preventDefault();
+		dropTargetIndex = index;
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+	}
+
+	function handleDrop(event: DragEvent, index: number) {
+		event.preventDefault();
+		if (draggedIndex !== null) moveDraftTrack(draggedIndex, index);
+		resetDragState();
+	}
+
 	async function saveTracks() {
 		if (!connection.baseUrl || !playlist || saving) return;
 		saving = true;
+		resetDragState();
 		mutationError = null;
 		try {
 			const client = createMediaServerClient({ baseUrl: connection.baseUrl });
@@ -406,9 +464,10 @@
 					id="add-songs"
 					type="search"
 					value={addQuery}
+					disabled={saving}
 					oninput={(e) => scheduleAddSearch(e.currentTarget.value)}
 					placeholder="Search tracks to add"
-					class="border-border bg-surface-muted focus:border-accent min-h-touch w-full max-w-xl rounded-card border px-4 text-base"
+					class="border-border bg-surface-muted focus:border-accent min-h-touch w-full max-w-xl rounded-card border px-4 text-base disabled:opacity-60"
 				/>
 				{#if addStatus === 'loading'}
 					<p class="text-text-muted" aria-busy="true">Searching…</p>
@@ -439,9 +498,34 @@
 		{#if (editing ? draftTracks : tracks).length === 0}
 			<StatusPanel message={editing ? 'No tracks in this draft.' : 'This playlist is empty.'} />
 		{:else}
+			<p class="sr-only" aria-live="polite">{reorderAnnouncement}</p>
 			<ul class="flex flex-col gap-2">
 				{#each editing ? draftTracks : tracks as track, index (track.id)}
-					<li class="flex items-center gap-2">
+					<li
+						class={[
+							'flex items-center gap-2 rounded-card border border-transparent transition',
+							draggedIndex === index && 'opacity-50',
+							dropTargetIndex === index &&
+								draggedIndex !== index &&
+								'border-accent bg-surface-raised'
+						]}
+						ondragover={(event) => handleDragOver(event, index)}
+						ondrop={(event) => handleDrop(event, index)}
+					>
+						{#if editing}
+							<button
+								type="button"
+								draggable={!saving}
+								class="border-border bg-surface-muted hover:border-accent min-h-touch min-w-touch cursor-grab touch-none shrink-0 rounded-card border text-xl font-semibold active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-60"
+								disabled={saving}
+								aria-label={`Drag to reorder ${track.title}`}
+								title="Drag to reorder"
+								ondragstart={(event) => handleDragStart(event, index)}
+								ondragend={resetDragState}
+							>
+								<span aria-hidden="true">⠿</span>
+							</button>
+						{/if}
 						<div class="min-w-0 flex-1">
 							<TrackRow
 								title={track.title}
@@ -460,6 +544,26 @@
 							/>
 						</div>
 						{#if editing}
+							<div class="flex shrink-0 flex-col gap-1">
+								<button
+									type="button"
+									class="border-border bg-surface-muted hover:border-accent min-h-touch rounded-card border px-3 text-sm font-semibold disabled:opacity-40"
+									disabled={saving || index === 0}
+									aria-label={`Move ${track.title} up`}
+									onclick={() => moveDraftTrack(index, index - 1)}
+								>
+									Up
+								</button>
+								<button
+									type="button"
+									class="border-border bg-surface-muted hover:border-accent min-h-touch rounded-card border px-3 text-sm font-semibold disabled:opacity-40"
+									disabled={saving || index === draftTracks.length - 1}
+									aria-label={`Move ${track.title} down`}
+									onclick={() => moveDraftTrack(index, index + 1)}
+								>
+									Down
+								</button>
+							</div>
 							<button
 								type="button"
 								class="border-border bg-surface-muted hover:border-accent min-h-touch min-w-touch shrink-0 rounded-card border text-sm font-semibold disabled:opacity-60"
