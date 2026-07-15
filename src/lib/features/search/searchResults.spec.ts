@@ -169,7 +169,7 @@ describe('SearchResultsController', () => {
 		const controller = new SearchResultsController({
 			getBaseUrl: () => baseUrl,
 			createClient: createMediaServerClient,
-			fetch: async (input, init) => {
+			fetch: async (input) => {
 				const url = String(input);
 				if (url.includes('q=slow')) return slow;
 				return jsonResponse(
