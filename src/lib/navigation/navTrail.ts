@@ -47,7 +47,6 @@ export function labelFromPath(path: string): string {
 	if (pathname === '/favourites') return 'Favourites';
 	if (pathname === '/history') return 'History';
 	if (pathname === '/connect') return 'Connect';
-	if (pathname === '/podcasts') return 'Podcasts';
 
 	const segment = pathname.split('/').filter(Boolean).at(-1);
 	if (!segment) return 'Back';

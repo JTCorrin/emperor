@@ -12,7 +12,13 @@ describe('CompactPlayer', () => {
 		});
 		player.playTracks(
 			[
-				trackFixture({ id: 1, title: 'Alpha', artist: 'Beta', cover_id: 73 }),
+				trackFixture({
+					id: 1,
+					title: 'Alpha',
+					artist: 'Beta',
+					album: 'Gamma',
+					cover_id: 73
+				}),
 				trackFixture({ id: 2 })
 			],
 			0
@@ -26,10 +32,13 @@ describe('CompactPlayer', () => {
 
 		await expect.element(page.getByText('Alpha')).toBeVisible();
 		await expect.element(page.getByText('Beta')).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Open artist Beta' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Open album Gamma' })).toBeVisible();
 		await expect
 			.element(page.getByRole('img', { name: 'Cover art for Alpha by Beta' }))
 			.toHaveAttribute('src', 'http://127.0.0.1:8080/cover/73');
 
+		await expect.element(page.getByRole('button', { name: 'Previous track' })).toBeVisible();
 		await page.getByRole('button', { name: 'Play', exact: true }).click();
 		expect(toggle).toHaveBeenCalled();
 
@@ -38,6 +47,7 @@ describe('CompactPlayer', () => {
 
 		await expect.element(page.getByRole('button', { name: 'Shuffle off' })).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Repeat off' })).toBeVisible();
+		await expect.element(page.getByRole('slider', { name: 'Seek' })).toBeVisible();
 
 		const toggleShuffle = vi.spyOn(player, 'toggleShuffle');
 		const cycleRepeat = vi.spyOn(player, 'cycleRepeat');

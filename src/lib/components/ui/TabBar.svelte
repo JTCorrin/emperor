@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 
 	type TabItem = {
-		href: '/' | '/playlists' | '/songs' | '/albums' | '/podcasts';
+		href: '/' | '/playlists' | '/songs' | '/albums';
 		label: string;
 	};
 
@@ -11,8 +11,7 @@
 		{ href: '/', label: 'Home' },
 		{ href: '/playlists', label: 'Playlists' },
 		{ href: '/songs', label: 'Songs' },
-		{ href: '/albums', label: 'Albums' },
-		{ href: '/podcasts', label: 'Podcasts' }
+		{ href: '/albums', label: 'Albums' }
 	];
 
 	function isActive(href: string): boolean {
@@ -23,7 +22,7 @@
 </script>
 
 <nav class="border-border bg-surface/95 border-b backdrop-blur" aria-label="Primary">
-	<ul class="mx-auto grid max-w-6xl grid-cols-5 gap-1 px-1 py-1 sm:px-2">
+	<ul class="mx-auto grid max-w-6xl grid-cols-4 gap-1 px-1 py-1 sm:px-2">
 		{#each tabs as tab (tab.href)}
 			<li>
 				<a

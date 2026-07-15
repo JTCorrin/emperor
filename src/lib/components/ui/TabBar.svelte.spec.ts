@@ -12,6 +12,6 @@ describe('TabBar', () => {
 		await expect.element(page.getByRole('link', { name: 'Playlists' })).toBeVisible();
 		await expect.element(page.getByRole('link', { name: 'Songs' })).toBeVisible();
 		await expect.element(page.getByRole('link', { name: 'Albums' })).toBeVisible();
-		await expect.element(page.getByRole('link', { name: 'Podcasts' })).toBeVisible();
+		await expect.element(page.getByRole('link', { name: 'Podcasts' })).not.toBeInTheDocument();
 	});
 });

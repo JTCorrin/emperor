@@ -29,6 +29,7 @@
 		getHasUserDb: () => connection.hasUserDb
 	});
 	const addToPlaylist = new AddToPlaylistController();
+	let playerWrapperHeight = $state(0);
 	setConnection(connection);
 	setPlayer(player);
 	setFavourites(favourites);
@@ -71,12 +72,14 @@
 </svelte:head>
 
 <div
-	class="text-text flex min-h-dvh flex-col pt-[var(--spacing-safe-top)] pr-[var(--spacing-safe-right)] pb-[var(--spacing-safe-bottom)] pl-[var(--spacing-safe-left)]"
+	class="text-text flex min-h-dvh flex-col pt-[var(--spacing-safe-top)] pr-[var(--spacing-safe-right)] pl-[var(--spacing-safe-left)]"
 >
 	<header class="border-border bg-surface/90 sticky top-0 z-10 border-b backdrop-blur">
-		<div class="flex flex-wrap items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
-			<a href={resolve('/')} class="shrink-0">
-				<img src={logo} alt="Emperor" class="h-7 w-auto sm:h-8" />
+		<div
+			class="flex flex-col items-stretch gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-6 sm:py-4"
+		>
+			<a href={resolve('/')} class="max-w-48 shrink-0 self-start">
+				<img src={logo} alt="Emperor" class="h-auto max-h-8 max-w-full object-contain" />
 			</a>
 			<SearchField />
 		</div>
@@ -86,7 +89,7 @@
 
 	<main
 		class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-6 sm:px-6"
-		style="padding-bottom: calc(var(--spacing-player-height) + var(--spacing-safe-bottom) + 1.5rem)"
+		style:padding-bottom={`calc(${playerWrapperHeight}px + 1.5rem)`}
 	>
 		{@render children()}
 	</main>
@@ -95,6 +98,7 @@
 	<AddToPlaylistDialog track={addToPlaylist.track} onclose={() => addToPlaylist.close()} />
 	<div
 		class="fixed inset-x-0 bottom-0 z-10 pr-[var(--spacing-safe-right)] pb-[var(--spacing-safe-bottom)] pl-[var(--spacing-safe-left)]"
+		bind:clientHeight={playerWrapperHeight}
 	>
 		<CompactPlayer
 			{player}

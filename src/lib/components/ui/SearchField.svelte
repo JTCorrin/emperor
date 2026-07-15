@@ -6,7 +6,7 @@
 </script>
 
 <form
-	class="flex min-w-0 flex-1 items-center gap-2"
+	class="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1"
 	method="GET"
 	action={resolve('/search')}
 	role="search"
