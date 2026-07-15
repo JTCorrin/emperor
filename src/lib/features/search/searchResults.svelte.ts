@@ -6,6 +6,7 @@ import {
 	type FetchLike,
 	type Track
 } from '$lib/api';
+import { isFuzzySearchEligible } from './searchPolicy';
 
 export type SearchSectionStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 
@@ -73,6 +74,16 @@ export class SearchResultsController {
 			return;
 		}
 
+		if (!isFuzzySearchEligible(query)) {
+			this.state = {
+				query,
+				tracks: emptySection('idle'),
+				artists: emptySection('idle'),
+				albums: emptySection('idle')
+			};
+			return;
+		}
+
 		if (!baseUrl) {
 			this.state = {
 				query,
@@ -96,6 +107,7 @@ export class SearchResultsController {
 			const result = await client.search({
 				q: query,
 				limit: SEARCH_LIMIT,
+				fuzzy: true,
 				signal: abort.signal
 			});
 

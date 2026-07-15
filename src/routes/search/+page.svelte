@@ -8,6 +8,7 @@
 	import TrackRow from '$lib/components/media/TrackRow.svelte';
 	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
 	import { SearchResultsController } from '$lib/features/search/searchResults.svelte';
+	import { isFuzzySearchEligible, SEARCH_DEBOUNCE_MS } from '$lib/features/search/searchPolicy';
 	import { getAddToPlaylist, getConnection, getPlayer } from '$lib/state/context';
 
 	const connection = getConnection();
@@ -41,7 +42,7 @@
 					noScroll: true
 				});
 			}
-		}, 300);
+		}, SEARCH_DEBOUNCE_MS);
 		return () => clearTimeout(handle);
 	}
 
@@ -84,6 +85,8 @@
 		</div>
 	{:else if !urlQuery}
 		<p class="text-text-muted text-lg">Enter a query to search tracks, artists, and albums.</p>
+	{:else if !isFuzzySearchEligible(urlQuery)}
+		<p class="text-text-muted text-lg">Type at least 3 characters to search.</p>
 	{:else}
 		<p class="text-text-muted text-lg">Results for “{urlQuery}”</p>
 

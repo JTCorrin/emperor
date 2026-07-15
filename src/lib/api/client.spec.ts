@@ -113,6 +113,23 @@ describe('createMediaServerClient', () => {
 		await expect(client.search({ q: 'browse', limit: 20 })).resolves.toEqual(search);
 	});
 
+	it('passes fuzzy=1 when fuzzy search is requested', async () => {
+		const search = searchResponseFixture({ q: 'abc', fuzzy: true });
+		let seenUrl: string | null = null;
+		const client = createMediaServerClient({
+			baseUrl,
+			fetch: async (input) => {
+				seenUrl = String(input);
+				return jsonResponse(search);
+			}
+		});
+
+		await expect(client.search({ q: 'abc', limit: 20, fuzzy: true })).resolves.toEqual(search);
+		expect(seenUrl).toContain(`${baseUrl}/api/search?`);
+		expect(seenUrl).toContain('fuzzy=1');
+		expect(seenUrl).toContain('q=abc');
+	});
+
 	it('maps 404 on missing album', async () => {
 		const client = createMediaServerClient({
 			baseUrl,

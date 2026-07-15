@@ -119,4 +119,75 @@ describe('SearchResultsController', () => {
 		expect(controller.state.artists.status).toBe('error');
 		expect(controller.state.albums.status).toBe('error');
 	});
+
+	it('does not fetch for queries shorter than three characters', async () => {
+		let fetched = false;
+		const controller = new SearchResultsController({
+			getBaseUrl: () => baseUrl,
+			createClient: createMediaServerClient,
+			fetch: async () => {
+				fetched = true;
+				return jsonResponse(searchResponseFixture());
+			}
+		});
+
+		await controller.search('ab');
+
+		expect(fetched).toBe(false);
+		expect(controller.state.query).toBe('ab');
+		expect(controller.state.tracks.status).toBe('idle');
+	});
+
+	it('requests fuzzy search for eligible queries', async () => {
+		let seenUrl: string | null = null;
+		const controller = new SearchResultsController({
+			getBaseUrl: () => baseUrl,
+			createClient: createMediaServerClient,
+			fetch: async (input) => {
+				seenUrl = String(input);
+				return jsonResponse(
+					searchResponseFixture({
+						q: 'abc',
+						tracks: trackPageFixture([trackFixture({ id: 1, title: 'Match' })])
+					})
+				);
+			}
+		});
+
+		await controller.search('abc');
+
+		expect(seenUrl).toContain('fuzzy=1');
+		expect(controller.state.tracks.status).toBe('ready');
+	});
+
+	it('does not surface errors for aborted superseded searches', async () => {
+		let rejectSlow: ((reason?: unknown) => void) | undefined;
+		const slow = new Promise<Response>((_, reject) => {
+			rejectSlow = reject;
+		});
+
+		const controller = new SearchResultsController({
+			getBaseUrl: () => baseUrl,
+			createClient: createMediaServerClient,
+			fetch: async (input, init) => {
+				const url = String(input);
+				if (url.includes('q=slow')) return slow;
+				return jsonResponse(
+					searchResponseFixture({
+						q: 'fast',
+						tracks: trackPageFixture([trackFixture({ id: 2, title: 'Fast Hit' })])
+					})
+				);
+			}
+		});
+
+		const first = controller.search('slow');
+		await controller.search('fast');
+		rejectSlow?.(new DOMException('Aborted', 'AbortError'));
+		await first;
+
+		expect(controller.state.query).toBe('fast');
+		expect(controller.state.tracks.status).toBe('ready');
+		expect(controller.state.tracks.errorMessage).toBeNull();
+	});
 });

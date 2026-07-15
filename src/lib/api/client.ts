@@ -55,6 +55,7 @@ export type PaginationQuery = {
 
 export type SearchQuery = PaginationQuery & {
 	q: string;
+	fuzzy?: boolean;
 };
 
 export type LibraryScanOptions = {
@@ -284,7 +285,8 @@ export function createMediaServerClient(options: MediaServerClientOptions): Medi
 				withQuery('/api/search', {
 					q: query.q,
 					limit: query.limit,
-					offset: query.offset
+					offset: query.offset,
+					fuzzy: query.fuzzy ? 1 : undefined
 				}),
 				searchResponseSchema,
 				{ signal: query.signal }

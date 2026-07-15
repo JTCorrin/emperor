@@ -17,6 +17,7 @@
 	import TrackRow from '$lib/components/media/TrackRow.svelte';
 	import StatusPanel from '$lib/components/ui/StatusPanel.svelte';
 	import { loadAllPages } from '$lib/features/browse/loadAllPages';
+	import { isFuzzySearchEligible, SEARCH_DEBOUNCE_MS } from '$lib/features/search/searchPolicy';
 	import { getBackTarget, setNavTrailLabel } from '$lib/navigation/navTrail';
 	import { getAddToPlaylist, getConnection, getFavourites, getPlayer } from '$lib/state/context';
 
@@ -66,6 +67,8 @@
 	let loadAbort: AbortController | null = null;
 	let loadToken = 0;
 	let addTimer: ReturnType<typeof setTimeout> | null = null;
+	let addAbort: AbortController | null = null;
+	let addToken = 0;
 
 	const renameForm = superForm(defaults({ name: '' }, zod4(playlistNameBodySchema)), {
 		SPA: true,
@@ -94,6 +97,7 @@
 
 	onDestroy(() => {
 		loadAbort?.abort();
+		addAbort?.abort();
 		if (addTimer) clearTimeout(addTimer);
 	});
 
@@ -217,22 +221,37 @@
 		if (addTimer) clearTimeout(addTimer);
 		addTimer = setTimeout(() => {
 			void runAddSearch(query.trim());
-		}, 300);
+		}, SEARCH_DEBOUNCE_MS);
 	}
 
 	async function runAddSearch(q: string) {
+		addAbort?.abort();
+		const abort = new AbortController();
+		addAbort = abort;
+		const token = ++addToken;
+
 		if (!connection.baseUrl || !q) {
 			addResults = [];
 			addStatus = 'idle';
 			return;
 		}
+
+		if (!isFuzzySearchEligible(q)) {
+			addResults = [];
+			addStatus = 'idle';
+			return;
+		}
+
 		addStatus = 'loading';
 		try {
 			const client = createMediaServerClient({ baseUrl: connection.baseUrl });
-			const result = await client.search({ q, limit: 20 });
+			const result = await client.search({ q, limit: 20, fuzzy: true, signal: abort.signal });
+			if (token !== addToken) return;
 			addResults = result.tracks.items;
 			addStatus = result.tracks.items.length === 0 ? 'empty' : 'ready';
-		} catch {
+		} catch (cause) {
+			if (token !== addToken) return;
+			if (cause instanceof MediaServerRequestError && cause.error.kind === 'aborted') return;
 			addStatus = 'error';
 			addResults = [];
 		}
