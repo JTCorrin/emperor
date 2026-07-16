@@ -1,6 +1,8 @@
 # Emperor
 
-A SvelteKit web client for **media-server** — browse your library, search, stream audio, and manage playlists against a LAN-hosted HTTP API.
+A SvelteKit web client for [personal-media-server](https://github.com/JTCorrin/personal-media-server) — browse your library, search, stream audio, and manage playlists against a LAN-hosted HTTP API.
+
+This was built specifically so I could have a nice chunky interface when using my car screen.
 
 ![Home screen with discovery shelves](docs/screenshots/home.png)
 
@@ -13,13 +15,13 @@ A SvelteKit web client for **media-server** — browse your library, search, str
 - **User library** — playlists, favourites, and play history (when the server runs with `--user-db`)
 - **Metadata** — edit track/album tags in the catalog; optional MusicBrainz lookup and cover apply
 
-Emperor auto-connects on load to `PUBLIC_MEDIA_SERVER_URL` (or a documented LAN default). See [AGENTS.md](./AGENTS.md) for the full media-server API contract.
+Emperor auto-connects on load to `PUBLIC_MEDIA_SERVER_URL` (or a documented LAN default). See [AGENTS.md](./AGENTS.md) for the full [personal-media-server](https://github.com/JTCorrin/personal-media-server) API contract.
 
 ## Requirements
 
 - [Node.js](https://nodejs.org/) 22+
 - [pnpm](https://pnpm.io/)
-- A running **media-server** instance reachable from the browser
+- A running [personal-media-server](https://github.com/JTCorrin/personal-media-server) instance reachable from the browser
 
 ## Quick start
 
@@ -48,7 +50,7 @@ Deploy with the Node adapter (`@sveltejs/adapter-node`). Set `PUBLIC_MEDIA_SERVE
 
 | Search                                 | Now playing                                      |
 | -------------------------------------- | ------------------------------------------------ |
-| ![Search](docs/screenshots/search.png) | ![Now playing](docs/screenshots/now-playing.png) |
+| ![Search](docs/screenshots/search.png) | No image yet - its essentially a sticky bar at the bottom |
 
 Regenerate with a preview server running:
 
