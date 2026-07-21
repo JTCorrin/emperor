@@ -115,7 +115,7 @@
 				href={resolve('/connect')}
 				class="border-border bg-surface-muted hover:border-accent inline-flex min-h-touch items-center rounded-card border px-5 text-base font-semibold"
 			>
-				Back to Connect
+				Back to Library
 			</a>
 		</div>
 	</form>

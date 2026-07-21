@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { normalizeBaseUrl } from './url';
 
 const MAX_SERVER_STRING_LENGTH = 2048;
 const MAX_PAGE_ITEMS = 200;
@@ -24,21 +23,6 @@ export const libraryStatusSchema = z.object({
 
 export const errorBodySchema = z.object({
 	error: serverString
-});
-
-export const connectFormSchema = z.object({
-	baseUrl: z
-		.string()
-		.trim()
-		.min(1, 'Base URL is required')
-		.refine((value) => {
-			try {
-				normalizeBaseUrl(value);
-				return true;
-			} catch {
-				return false;
-			}
-		}, 'Enter a valid http or https URL')
 });
 
 export const playlistNameBodySchema = z.object({
@@ -195,7 +179,6 @@ export const albumMetadataFormSchema = z.object({
 export type PingResponse = z.infer<typeof pingResponseSchema>;
 export type LibraryStatus = z.infer<typeof libraryStatusSchema>;
 export type ErrorBody = z.infer<typeof errorBodySchema>;
-export type ConnectForm = z.infer<typeof connectFormSchema>;
 export type PlaylistNameBody = z.infer<typeof playlistNameBodySchema>;
 export type PlaylistTracksBody = z.infer<typeof playlistTracksBodySchema>;
 export type Track = z.infer<typeof trackSchema>;

@@ -14,7 +14,7 @@
 			case 'connecting':
 				return 'Connecting…';
 			case 'disconnected':
-				return 'Saved server offline';
+				return 'Server offline';
 			case 'error':
 				return 'Connection error';
 			default:
@@ -34,7 +34,7 @@
 		if (connection.baseUrl) {
 			return connection.baseUrl;
 		}
-		return 'Enter a media-server base URL to get started';
+		return 'Waiting for the configured media server';
 	});
 </script>
 
@@ -47,24 +47,16 @@
 		<p class="text-text-muted truncate text-base">{detail}</p>
 	</div>
 
-	{#if connection.status === 'connected' || connection.status === 'disconnected' || connection.status === 'error'}
-		<div class="flex flex-wrap gap-3">
-			{#if connection.baseUrl}
-				<button
-					type="button"
-					class="bg-surface-muted text-text border-border hover:border-accent min-h-touch min-w-touch rounded-card border px-5 text-base font-medium"
-					onclick={() => connection.recheck()}
-				>
-					Recheck
-				</button>
-			{/if}
-			<button
-				type="button"
-				class="bg-surface-muted text-text border-border hover:border-danger min-h-touch min-w-touch rounded-card border px-5 text-base font-medium"
-				onclick={() => connection.disconnect()}
-			>
-				Disconnect
-			</button>
-		</div>
+	{#if (connection.status === 'connected' ||
+		connection.status === 'disconnected' ||
+		connection.status === 'error') &&
+		connection.baseUrl}
+		<button
+			type="button"
+			class="bg-surface-muted text-text border-border hover:border-accent min-h-touch min-w-touch rounded-card border px-5 text-base font-medium"
+			onclick={() => connection.recheck()}
+		>
+			Recheck
+		</button>
 	{/if}
 </section>

@@ -44,6 +44,14 @@ type AudioLike = Pick<
 
 const REPEAT_CYCLE: RepeatMode[] = ['off', 'all', 'one'];
 
+function isAbortError(cause: unknown): boolean {
+	return cause instanceof DOMException && cause.name === 'AbortError';
+}
+
+function isAutoplayBlocked(cause: unknown): boolean {
+	return cause instanceof DOMException && cause.name === 'NotAllowedError';
+}
+
 export class PlayerController {
 	queue = $state.raw<Track[]>([]);
 	index = $state(-1);
@@ -64,6 +72,8 @@ export class PlayerController {
 	#historyPendingForTrackId: number | null = null;
 	#loadToken = 0;
 	#listenersAttached = false;
+	/** True when autoplay was requested but play() was blocked (common when backgrounded). */
+	#autoplayPending = false;
 
 	constructor(options: PlayerControllerOptions) {
 		this.#getBaseUrl = options.getBaseUrl;
@@ -134,19 +144,35 @@ export class PlayerController {
 		try {
 			this.playbackStatus = 'loading';
 			await this.#audio.play();
+			this.#autoplayPending = false;
 			this.playbackStatus = 'playing';
 			this.errorMessage = null;
 		} catch (cause) {
+			if (isAbortError(cause)) return;
+			if (isAutoplayBlocked(cause)) {
+				this.#autoplayPending = true;
+				this.playbackStatus = 'paused';
+				this.errorMessage = null;
+				return;
+			}
+			this.#autoplayPending = false;
 			this.playbackStatus = 'error';
 			this.errorMessage = cause instanceof Error ? cause.message : 'Playback failed';
 		}
 	}
 
 	pause(): void {
+		this.#autoplayPending = false;
 		this.#audio?.pause();
 		if (this.playbackStatus === 'playing' || this.playbackStatus === 'loading') {
 			this.playbackStatus = 'paused';
 		}
+	}
+
+	/** Retry autoplay after the page becomes visible again (car lock / background). */
+	resumeIfNeeded(): void {
+		if (!this.#autoplayPending || !this.currentTrack || !this.#audio) return;
+		void this.play();
 	}
 
 	toggle(): void {
@@ -222,9 +248,10 @@ export class PlayerController {
 		const audio = this.#audio;
 		const baseUrl = this.#getBaseUrl();
 		if (!track || !audio || !baseUrl) {
+			this.#autoplayPending = false;
 			this.playbackStatus = track ? 'error' : 'idle';
 			if (track && !baseUrl) {
-				this.errorMessage = 'Connect to a media server to play audio';
+				this.errorMessage = 'Media server is not connected';
 			}
 			return;
 		}
@@ -234,6 +261,7 @@ export class PlayerController {
 		this.position = 0;
 		this.duration = 0;
 		this.errorMessage = null;
+		this.#autoplayPending = autoplay;
 		audio.src = streamUrl(baseUrl, track.id);
 
 		if (!autoplay) {
@@ -242,11 +270,22 @@ export class PlayerController {
 		}
 
 		try {
+			// Call play() in the same turn as the ended/next handler when possible so
+			// mobile / car browsers treat it as a continuation of the media session.
 			await audio.play();
 			if (token !== this.#loadToken) return;
+			this.#autoplayPending = false;
 			this.playbackStatus = 'playing';
 		} catch (cause) {
 			if (token !== this.#loadToken) return;
+			if (isAbortError(cause)) return;
+			if (isAutoplayBlocked(cause)) {
+				this.#autoplayPending = true;
+				this.playbackStatus = 'paused';
+				this.errorMessage = null;
+				return;
+			}
+			this.#autoplayPending = false;
 			this.playbackStatus = 'error';
 			this.errorMessage = cause instanceof Error ? cause.message : 'Playback failed';
 		}
@@ -320,6 +359,7 @@ export class PlayerController {
 	};
 
 	#onPlay = (): void => {
+		this.#autoplayPending = false;
 		this.playbackStatus = 'playing';
 		this.errorMessage = null;
 	};

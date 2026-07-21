@@ -81,7 +81,7 @@ test.describe('auto-connect journey', () => {
 		await waitForAutoConnect(page);
 	});
 
-	test('keeps /connect as an unlinked escape hatch with library status', async ({ page }) => {
+	test('shows library status on /connect without a URL form', async ({ page }) => {
 		const baseUrl = MEDIA_SERVER_BASE_URL;
 		await page.route(
 			(url) => String(url).startsWith(baseUrl),
@@ -113,8 +113,9 @@ test.describe('auto-connect journey', () => {
 		);
 
 		await gotoConnected(page, '/connect');
-		await expect(page.getByRole('heading', { name: 'Server' })).toBeVisible();
-		await expect(page.getByText('Connected', { exact: true })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
+		await expect(page.getByText('Connected', { exact: true })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Scan' })).toBeVisible();
+		await expect(page.getByLabel('Media server URL')).toHaveCount(0);
 	});
 });

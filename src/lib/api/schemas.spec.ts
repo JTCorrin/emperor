@@ -8,7 +8,6 @@ import {
 	albumSchema,
 	artistPageSchema,
 	artistSchema,
-	connectFormSchema,
 	historyItemSchema,
 	libraryStatusSchema,
 	pingResponseSchema,
@@ -86,14 +85,6 @@ describe('API schemas', () => {
 	it('rejects malformed artist and album payloads', () => {
 		expect(artistSchema.safeParse({ id: 1, name: 'X' }).success).toBe(false);
 		expect(albumSchema.safeParse({ id: 1, name: 'X', artist: 'Y' }).success).toBe(false);
-	});
-
-	it('validates connect form URLs', () => {
-		expect(connectFormSchema.parse({ baseUrl: ' http://127.0.0.1:8080 ' })).toEqual({
-			baseUrl: 'http://127.0.0.1:8080'
-		});
-		expect(connectFormSchema.safeParse({ baseUrl: 'not-a-url' }).success).toBe(false);
-		expect(connectFormSchema.safeParse({ baseUrl: 'http://user@example.com' }).success).toBe(false);
 	});
 
 	it('accepts partial track and album metadata patches including null clears', () => {

@@ -74,6 +74,26 @@ describe('PlayerController', () => {
 		expect(player.currentTrack?.id).toBe(1);
 	});
 
+	it('keeps autoplay pending when play is blocked and resumes later', async () => {
+		const audio = createMockAudio();
+		audio.play = vi.fn(async () => {
+			throw new DOMException('blocked', 'NotAllowedError');
+		});
+		const player = new PlayerController({
+			getBaseUrl: () => 'http://127.0.0.1:8080'
+		});
+		player.attachAudio(audio);
+		player.playTracks([trackFixture({ id: 1 }), trackFixture({ id: 2 })], 0);
+		await vi.waitFor(() => expect(player.playbackStatus).toBe('paused'));
+
+		audio.play = vi.fn(async () => {
+			audio.paused = false;
+			audio.dispatch('play');
+		});
+		player.resumeIfNeeded();
+		await vi.waitFor(() => expect(player.playbackStatus).toBe('playing'));
+	});
+
 	it('advances on ended and stops at the end', async () => {
 		const audio = createMockAudio();
 		const player = new PlayerController({

@@ -109,13 +109,9 @@
 
 	{#if connection.status !== 'connected'}
 		<div class="border-border bg-surface-raised rounded-card border p-6">
-			<p class="text-lg">Connect to a media server to manage playlists.</p>
-			<a
-				href={resolve('/connect')}
-				class="bg-accent text-text hover:bg-accent-strong mt-4 inline-flex min-h-touch items-center rounded-card px-5 text-base font-semibold"
-			>
-				Connect to a server
-			</a>
+			<p class="text-lg">
+				Waiting for the media server. Use Retry in the banner when it comes back.
+			</p>
 		</div>
 	{:else if connection.hasUserDb === false}
 		<StatusPanel

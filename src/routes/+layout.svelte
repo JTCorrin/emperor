@@ -16,6 +16,11 @@
 	import { recordNavPath } from '$lib/navigation/navTrail';
 	import { ConnectionController } from '$lib/state/connection.svelte';
 	import { setAddToPlaylist, setConnection, setFavourites, setPlayer } from '$lib/state/context';
+	import {
+		bindMediaSessionActions,
+		clearMediaSession,
+		syncMediaSession
+	} from '$lib/state/mediaSession';
 	import { PlayerController } from '$lib/state/player.svelte';
 
 	let { children } = $props();
@@ -35,6 +40,14 @@
 	setFavourites(favourites);
 	setAddToPlaylist(addToPlaylist);
 
+	const documentTitle = $derived.by(() => {
+		const track = player.currentTrack;
+		if (!track) return 'Emperor';
+		const title = track.title || track.filename || 'Unknown title';
+		const artist = track.artist || 'Unknown artist';
+		return `${title} — ${artist} · Emperor`;
+	});
+
 	afterNavigate((navigation) => {
 		const to = navigation.to;
 		if (!to) return;
@@ -43,9 +56,20 @@
 
 	onMount(() => {
 		void connection.connect(getMediaServerBaseUrl());
+		bindMediaSessionActions({
+			play: () => {
+				void player.play();
+			},
+			pause: () => player.pause(),
+			next: () => player.next(),
+			previous: () => player.previous(),
+			seek: (seconds) => player.seek(seconds),
+			seekBy: (delta) => player.seek(player.position + delta)
+		});
 	});
 
 	onDestroy(() => {
+		clearMediaSession();
 		favourites.dispose();
 		player.dispose();
 	});
@@ -63,13 +87,31 @@
 		}
 	}
 
+	function syncMediaSessionEffect() {
+		const track = player.currentTrack;
+		const baseUrl = connection.baseUrl;
+		const playbackStatus = player.playbackStatus;
+		const position = player.position;
+		const duration = player.duration;
+		syncMediaSession({ track, baseUrl, playbackStatus, position, duration });
+	}
+
+	function onVisibilityChange() {
+		if (document.visibilityState === 'visible') {
+			player.resumeIfNeeded();
+		}
+	}
+
 	$effect(loadFavouritesEffect);
+	$effect(syncMediaSessionEffect);
 </script>
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>Emperor</title>
+	<title>{documentTitle}</title>
 </svelte:head>
+
+<svelte:document onvisibilitychange={onVisibilityChange} />
 
 <div
 	class="text-text flex min-h-dvh flex-col pt-[var(--spacing-safe-top)] pr-[var(--spacing-safe-right)] pl-[var(--spacing-safe-left)]"
@@ -94,7 +136,7 @@
 		{@render children()}
 	</main>
 
-	<audio {@attach attachAudio} preload="metadata" class="hidden"></audio>
+	<audio {@attach attachAudio} playsinline preload="metadata" class="hidden"></audio>
 	<AddToPlaylistDialog track={addToPlaylist.track} onclose={() => addToPlaylist.close()} />
 	<div
 		class="fixed inset-x-0 bottom-0 z-10 pr-[var(--spacing-safe-right)] pb-[var(--spacing-safe-bottom)] pl-[var(--spacing-safe-left)]"

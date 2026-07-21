@@ -6,7 +6,7 @@ import { ConnectionController } from '$lib/state/connection.svelte';
 
 describe('OfflineBanner', () => {
 	it('is hidden while connected', async () => {
-		const connection = new ConnectionController({ storage: null });
+		const connection = new ConnectionController();
 		connection.status = 'connected';
 		connection.baseUrl = 'http://192.168.5.111:8080';
 
@@ -16,7 +16,7 @@ describe('OfflineBanner', () => {
 	});
 
 	it('shows offline copy and retries with the configured URL', async () => {
-		const connection = new ConnectionController({ storage: null });
+		const connection = new ConnectionController();
 		connection.status = 'error';
 		connection.error = {
 			kind: 'network',

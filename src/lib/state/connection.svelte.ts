@@ -7,12 +7,9 @@ import {
 } from '$lib/api';
 import { BaseUrlError, normalizeBaseUrl } from '$lib/api/url';
 
-export const CONNECTION_STORAGE_KEY = 'emperor:media-server-base-url';
-
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
 
 export type ConnectionControllerOptions = {
-	storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
 	fetch?: FetchLike;
 	createClient?: typeof createMediaServerClient;
 	/** Poll interval while libraryStatus.scanning is true. Default 2000ms. */
@@ -49,7 +46,6 @@ export class ConnectionController {
 	scanPending = $state(false);
 	scanError = $state<string | null>(null);
 
-	#storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
 	#fetch: FetchLike;
 	#createClient: typeof createMediaServerClient;
 	#probeController: AbortController | null = null;
@@ -58,12 +54,6 @@ export class ConnectionController {
 	#scanPollIntervalMs: number;
 
 	constructor(options: ConnectionControllerOptions = {}) {
-		this.#storage =
-			options.storage === undefined
-				? typeof localStorage === 'undefined'
-					? null
-					: localStorage
-				: options.storage;
 		this.#fetch = options.fetch ?? fetch;
 		this.#createClient = options.createClient ?? createMediaServerClient;
 		this.#scanPollIntervalMs = options.scanPollIntervalMs ?? 2000;
@@ -103,29 +93,6 @@ export class ConnectionController {
 		this.#scanPollTimer = setInterval(() => {
 			void this.refreshLibraryStatus();
 		}, this.#scanPollIntervalMs);
-	}
-
-	restore(): string | null {
-		const saved = this.#storage?.getItem(CONNECTION_STORAGE_KEY);
-		if (!saved) {
-			this.baseUrl = null;
-			this.status = 'idle';
-			this.hasUserDb = null;
-			return null;
-		}
-
-		try {
-			this.baseUrl = normalizeBaseUrl(saved);
-			this.status = 'disconnected';
-			this.hasUserDb = null;
-			return this.baseUrl;
-		} catch {
-			this.#storage?.removeItem(CONNECTION_STORAGE_KEY);
-			this.baseUrl = null;
-			this.status = 'idle';
-			this.hasUserDb = null;
-			return null;
-		}
 	}
 
 	async #probeUserDb(
@@ -184,7 +151,6 @@ export class ConnectionController {
 			this.hasUserDb = hasUserDb;
 			this.status = 'connected';
 			this.error = null;
-			this.#storage?.setItem(CONNECTION_STORAGE_KEY, client.baseUrl);
 			this.#syncScanPoll();
 			return true;
 		} catch (cause) {
@@ -211,13 +177,9 @@ export class ConnectionController {
 
 	async recheck(): Promise<boolean> {
 		if (!this.baseUrl) {
-			const restored = this.restore();
-			if (!restored) {
-				return false;
-			}
+			return false;
 		}
-
-		return this.connect(this.baseUrl!);
+		return this.connect(this.baseUrl);
 	}
 
 	async refreshLibraryStatus(): Promise<boolean> {
@@ -254,7 +216,7 @@ export class ConnectionController {
 
 	async startScan(force = false): Promise<boolean> {
 		if (this.status !== 'connected' || !this.baseUrl) {
-			this.scanError = 'Connect to a media server before scanning.';
+			this.scanError = 'Media server is not connected.';
 			return false;
 		}
 
@@ -278,11 +240,11 @@ export class ConnectionController {
 		}
 	}
 
-	disconnect(): void {
+	/** Reset connection state and stop background polls (does not clear build-time config). */
+	reset(): void {
 		this.#probeController?.abort();
 		this.#probeController = null;
 		this.#stopScanPoll();
-		this.#storage?.removeItem(CONNECTION_STORAGE_KEY);
 		this.baseUrl = null;
 		this.libraryStatus = null;
 		this.error = null;

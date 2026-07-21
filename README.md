@@ -11,11 +11,11 @@ This was built specifically so I could have a nice chunky interface when using m
 - **Home shelves** — discover, recently added, recently played, playlists, and favourites
 - **Browse** — artists, albums, and the full track list with cover art
 - **Search** — tracks, artists, and albums (optional fuzzy matching)
-- **Playback** — queue, shuffle/repeat, and compact now-playing bar
+- **Playback** — queue, shuffle/repeat, compact now-playing bar, Media Session lock-screen controls
 - **User library** — playlists, favourites, and play history (when the server runs with `--user-db`)
 - **Metadata** — edit track/album tags in the catalog; optional MusicBrainz lookup and cover apply
 
-Emperor auto-connects on load to `PUBLIC_MEDIA_SERVER_URL` (or a documented LAN default). See [AGENTS.md](./AGENTS.md) for the full [personal-media-server](https://github.com/JTCorrin/personal-media-server) API contract.
+Emperor auto-connects on load to the build-time `PUBLIC_MEDIA_SERVER_URL` (or a documented LAN default in local dev). There is no server-URL form — set the var in Forgejo / your build env. See [AGENTS.md](./AGENTS.md) for the full [personal-media-server](https://github.com/JTCorrin/personal-media-server) API contract.
 
 ## Requirements
 

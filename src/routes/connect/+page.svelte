@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import ConnectForm from '$lib/features/connect/ConnectForm.svelte';
 	import ConnectionStatusBar from '$lib/components/ui/ConnectionStatusBar.svelte';
 	import { getMediaServerBaseUrl } from '$lib/config';
 	import { getConnection } from '$lib/state/context';
 
 	const connection = getConnection();
 	const configuredUrl = getMediaServerBaseUrl();
-	const initialBaseUrl = $derived(connection.baseUrl ?? configuredUrl);
 	const status = $derived(connection.libraryStatus);
 
 	function formatScanTime(unix: number | null | undefined): string {
@@ -22,27 +20,22 @@
 
 <section class="flex flex-1 flex-col gap-6">
 	<div class="flex flex-col gap-2">
-		<h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Server</h1>
+		<h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Library</h1>
 		<p class="text-text-muted max-w-2xl text-lg">
-			Escape hatch for overriding the configured media-server URL (<code class="text-text"
-				>{configuredUrl}</code
-			>). Normal app boot uses
-			<code class="text-text">PUBLIC_MEDIA_SERVER_URL</code> automatically.
+			The media-server URL is set at build time via
+			<code class="text-text">PUBLIC_MEDIA_SERVER_URL</code>. Configured server:
+			<code class="text-text">{configuredUrl}</code>
 		</p>
 		<p class="text-text-muted max-w-2xl text-base">
 			If Emperor uses HTTPS, your browser may block an HTTP media server as mixed content.
 		</p>
 		<p class="text-text-muted max-w-2xl text-base">
-			<a class="text-accent-strong underline" href={resolve('/settings')}>Settings</a> — MusicBrainz contact
-			(User-Agent) for metadata lookup and optional Cover Art Archive apply.
+			<a class="text-accent-strong underline" href={resolve('/settings')}>Settings</a> — MusicBrainz
+			contact (User-Agent) for metadata lookup and optional Cover Art Archive apply.
 		</p>
 	</div>
 
 	<ConnectionStatusBar {connection} />
-
-	{#key initialBaseUrl}
-		<ConnectForm {initialBaseUrl} />
-	{/key}
 
 	{#if connection.status === 'connected'}
 		<p class="text-success text-lg" role="status">
@@ -55,7 +48,7 @@
 			aria-labelledby="library-panel-title"
 		>
 			<div class="flex flex-col gap-1">
-				<h2 id="library-panel-title" class="text-2xl font-semibold tracking-tight">Library</h2>
+				<h2 id="library-panel-title" class="text-2xl font-semibold tracking-tight">Scan</h2>
 				<p class="text-text-muted text-base">
 					Watch scan status and start a rescan. Does not rewrite files on disk.
 				</p>
